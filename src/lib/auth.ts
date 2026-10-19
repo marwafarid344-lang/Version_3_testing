@@ -15,6 +15,7 @@ export interface StudentUser {
   email?: string
   coins?: number
   ai_credits?: number
+  CAPI_REQS?: number
   inventory?: string[]
   Registrations?: { lastUpdated?: string; courses?: string[] } | null
   is_super_admin: boolean
@@ -126,7 +127,7 @@ export async function getStudentSession(forceRefresh = false): Promise<StudentUs
       // Fetch fresh user data from chameleons table — select ONLY needed columns to minimize egress
       let { data: userData, error: dbError } = await supabase
         .from('chameleons')
-        .select('auth_id, username, phone_number, specialization, age, current_level, status, is_admin, is_banned, created_at, profile_image, email, coins, ai_credits, inventory, Registrations, is_super_admin, deletion_scheduled_at')
+        .select('auth_id, username, phone_number, specialization, age, current_level, status, is_admin, is_banned, created_at, profile_image, email, coins, ai_credits, inventory, Registrations, is_super_admin, deletion_scheduled_at, CAPI_REQS')
         .eq('auth_id', user.id)
         .single()
 
@@ -169,6 +170,7 @@ export async function getStudentSession(forceRefresh = false): Promise<StudentUs
         email: userData.email,
         coins: userData.coins || 0,
         ai_credits: userData.ai_credits ?? 20,
+        CAPI_REQS: userData.CAPI_REQS ?? 0,
         inventory: userData.inventory || [],
         Registrations: userData.Registrations || null,
         is_super_admin: userData.is_super_admin || false

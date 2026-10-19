@@ -30,6 +30,12 @@ export interface AIMessage {
   content: string;
 }
 
+export interface AIUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 export interface AIRequest {
   messages: AIMessage[];
   model?: string;
@@ -38,17 +44,14 @@ export interface AIRequest {
   stream?: boolean;
   responseFormat?: { type: 'json_object' | 'text' };
   timeoutMs?: number;
+  onUsage?: (usage: AIUsage) => void;
 }
 
 export interface AIResponse {
   provider: ProviderId;
   model: string;
   content: string;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  usage?: AIUsage;
   finishReason?: string;
   durationMs: number;
 }

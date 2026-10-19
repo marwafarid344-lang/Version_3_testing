@@ -64,6 +64,17 @@ export class CloudflareAdapter extends BaseProviderAdapter {
     const rawContent = data.result?.response || (typeof data.result === 'string' ? data.result : '');
     const content = stripThinking(rawContent);
 
+    if (request.onUsage) {
+      const { estimateTokens } = await import('@/lib/token-budget-manager');
+      const promptTokens = estimateTokens(JSON.stringify(request.messages));
+      const completionTokens = estimateTokens(content);
+      request.onUsage({
+        promptTokens,
+        completionTokens,
+        totalTokens: promptTokens + completionTokens,
+      });
+    }
+
     return {
       provider: this.id,
       model,
@@ -111,6 +122,8 @@ export class CloudflareAdapter extends BaseProviderAdapter {
           controller.enqueue(sseChunk(cleanChunk));
         });
 
+        let accumulatedText = '';
+
         try {
           while (true) {
             const { value, done } = await reader.read();
@@ -128,6 +141,7 @@ export class CloudflareAdapter extends BaseProviderAdapter {
                     // Cloudflare stream chunk format: { response: "text" }
                     const chunkText = parsed.response || '';
                     if (chunkText) {
+                      accumulatedText += chunkText;
                       thoughtFilter.push(chunkText);
                     }
                   } catch {
@@ -139,6 +153,18 @@ export class CloudflareAdapter extends BaseProviderAdapter {
             }
           }
           thoughtFilter.flush();
+
+          if (request.onUsage) {
+            const { estimateTokens } = await import('@/lib/token-budget-manager');
+            const promptTokens = estimateTokens(JSON.stringify(request.messages));
+            const completionTokens = estimateTokens(accumulatedText);
+            request.onUsage({
+              promptTokens,
+              completionTokens,
+              totalTokens: promptTokens + completionTokens,
+            });
+          }
+
           controller.enqueue(sseDone());
           controller.close();
         } catch (err) {

@@ -7,6 +7,7 @@ import { buildUserSessionPrompt, MarlineUserSession } from "@/lib/marline/user-s
 import { marlineRouter } from "@/lib/marline/router";
 import { estimateTokens } from "@/lib/token-budget-manager";
 import { getProviderLayerInfo } from "@/lib/marline/providers/config";
+import { incrementUserConsumedTokens } from "@/lib/capi-reqs";
 
 export async function POST(req: Request) {
   try {
@@ -133,12 +134,20 @@ export async function POST(req: Request) {
 
     const inputTokens = estimateTokens(JSON.stringify(formattedMessages));
 
+    let hasRecordedTokens = false;
+
     // Route across 5-layer system with transparent fallback
     const streamResponse = await marlineRouter.executeStreamWithFallback(
       {
         messages: formattedMessages,
         maxTokens: 2800,
         temperature: 0.25,
+        onUsage: (usage) => {
+          if (!hasRecordedTokens && usage?.totalTokens) {
+            hasRecordedTokens = true;
+            incrementUserConsumedTokens(auth_id, usage.totalTokens);
+          }
+        },
       },
       {
         task: 'chat',
@@ -148,9 +157,41 @@ export async function POST(req: Request) {
       }
     );
 
+    const rawReader = streamResponse.stream.getReader();
+    let accumulatedBytes = 0;
+
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const { value, done } = await rawReader.read();
+          if (done) {
+            controller.close();
+            if (!hasRecordedTokens) {
+              hasRecordedTokens = true;
+              const estOut = Math.max(1, Math.ceil(accumulatedBytes / 4));
+              incrementUserConsumedTokens(auth_id, inputTokens + estOut);
+            }
+          } else if (value) {
+            accumulatedBytes += value.byteLength;
+            controller.enqueue(value);
+          }
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+      cancel() {
+        rawReader.cancel();
+        if (!hasRecordedTokens) {
+          hasRecordedTokens = true;
+          const estOut = Math.max(1, Math.ceil(accumulatedBytes / 4));
+          incrementUserConsumedTokens(auth_id, inputTokens + estOut);
+        }
+      },
+    });
+
     const { tier, tierLabel } = getProviderLayerInfo(streamResponse.provider);
 
-    return new Response(streamResponse.stream, {
+    return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",

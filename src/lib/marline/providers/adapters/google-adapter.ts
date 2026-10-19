@@ -67,15 +67,21 @@ export class GoogleAdapter extends BaseProviderAdapter {
     const message = choice?.message;
     const content = stripThinking(message?.content || '');
 
+    const usage = data.usage ? {
+      promptTokens: data.usage.prompt_tokens,
+      completionTokens: data.usage.completion_tokens,
+      totalTokens: data.usage.total_tokens,
+    } : undefined;
+
+    if (usage && request.onUsage) {
+      request.onUsage(usage);
+    }
+
     return {
       provider: this.id,
       model,
       content,
-      usage: data.usage ? {
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-      } : undefined,
+      usage,
       finishReason: choice?.finish_reason,
       durationMs: Date.now() - startTime,
     };
@@ -121,6 +127,9 @@ export class GoogleAdapter extends BaseProviderAdapter {
           controller.enqueue(sseChunk(cleanChunk));
         });
 
+        let capturedUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
+        let accumulatedText = '';
+
         try {
           while (true) {
             const { value, done } = await reader.read();
@@ -135,10 +144,14 @@ export class GoogleAdapter extends BaseProviderAdapter {
                 if (trimmed.startsWith('data: ') && !trimmed.includes('[DONE]')) {
                   try {
                     const parsed = JSON.parse(trimmed.slice(6));
+                    if (parsed.usage) {
+                      capturedUsage = parsed.usage;
+                    }
                     const delta = parsed.choices?.[0]?.delta;
                     // Strictly use content only. NEVER stream internal reasoning to the client!
                     const deltaContent = delta?.content || '';
                     if (deltaContent) {
+                      accumulatedText += deltaContent;
                       thoughtFilter.push(deltaContent);
                     }
                   } catch {
@@ -149,6 +162,26 @@ export class GoogleAdapter extends BaseProviderAdapter {
             }
           }
           thoughtFilter.flush();
+
+          if (request.onUsage) {
+            if (capturedUsage) {
+              request.onUsage({
+                promptTokens: capturedUsage.prompt_tokens,
+                completionTokens: capturedUsage.completion_tokens,
+                totalTokens: capturedUsage.total_tokens,
+              });
+            } else {
+              const { estimateTokens } = await import('@/lib/token-budget-manager');
+              const promptTokens = estimateTokens(JSON.stringify(request.messages));
+              const completionTokens = estimateTokens(accumulatedText);
+              request.onUsage({
+                promptTokens,
+                completionTokens,
+                totalTokens: promptTokens + completionTokens,
+              });
+            }
+          }
+
           controller.enqueue(sseDone());
           controller.close();
         } catch (err) {

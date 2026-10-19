@@ -22,7 +22,7 @@ export const getServerStudentSession = cache(async (): Promise<StudentUser | nul
 
     const res = await supabase
       .from('chameleons')
-      .select('auth_id, username, phone_number, specialization, age, current_level, status, is_admin, is_banned, created_at, profile_image, email, coins, inventory, Registrations, is_super_admin')
+      .select('auth_id, username, phone_number, specialization, age, current_level, status, is_admin, is_banned, created_at, profile_image, email, coins, inventory, Registrations, is_super_admin, CAPI_REQS')
       .eq('auth_id', user.id)
       .single();
 
@@ -60,6 +60,7 @@ export const getServerStudentSession = cache(async (): Promise<StudentUser | nul
       profile_image: userData.profile_image,
       email: userData.email,
       coins: userData.coins || 0,
+      CAPI_REQS: userData.CAPI_REQS ?? 0,
       inventory: userData.inventory || [],
       Registrations: userData.Registrations || null,
       is_super_admin: userData.is_super_admin || false

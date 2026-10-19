@@ -13,6 +13,7 @@ import { GROQ_MODELS, OPENROUTER_MODELS } from "@/lib/drive-ai-orchestrator";
 import { getProviderSecrets, getProviderLayerInfo } from "@/lib/marline/providers/config";
 import { marlineRouter } from "@/lib/marline/router";
 import { estimateTokens } from "@/lib/token-budget-manager";
+import { incrementUserConsumedTokens } from "@/lib/capi-reqs";
 
 export async function GET(req: NextRequest) {
   try {
@@ -298,6 +299,12 @@ CRITICAL ANTI-HALLUCINATION & STRICT GROUNDING RULES:
           finalQuestions.forEach((q: any, idx: number) => { q.numb = idx + 1; });
           const normalizedQuestions = finalQuestions.map(normalizeQuizQuestionItem);
           await deductCredits();
+
+          // Increment CAPI_REQS with real consumed tokens (prompt + completion)
+          const consumedTokens = quizGenResponse.usage?.totalTokens
+            || (estimateTokens(JSON.stringify(quizMessages)) + estimateTokens(rawContent));
+          await incrementUserConsumedTokens(session.auth_id, consumedTokens);
+
           if (shouldCache) {
             await setCachedAIResult(sanitizedContext, cacheTaskKey, language, normalizedQuestions);
           }
@@ -374,6 +381,9 @@ CRITICAL ANTI-HALLUCINATION & STRICT GROUNDING RULES:
       onDeductCredits: deductCredits,
       currentCredits,
       dynamicTokenCost,
+      onConsumedTokens: async (tokens) => {
+        await incrementUserConsumedTokens(session.auth_id, tokens);
+      },
     });
 
     return new Response(stream, {

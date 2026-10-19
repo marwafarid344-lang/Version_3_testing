@@ -43,6 +43,7 @@ export interface OrchestratorOptions {
   onDeductCredits: () => Promise<void>;
   currentCredits: number;
   dynamicTokenCost: number;
+  onConsumedTokens?: (tokens: number) => Promise<void> | void;
 }
 
 interface PerformanceMetric {
@@ -99,6 +100,8 @@ async function executeChunkedSummarization(
 
   console.log(`[Marline Drive AI] Processing ${chunks.length} chunks with concurrency limit ${MAX_CONCURRENT_CHUNKS}...`);
 
+  let totalChunkTokens = 0;
+
   // Step 1: Process chunks with concurrency limiter
   const chunkSummaries = await mapWithConcurrency(chunks, MAX_CONCURRENT_CHUNKS, async (chunk) => {
     const chunkInputTokens = estimateTokens(chunk.text) + 200;
@@ -129,6 +132,9 @@ Output clean structured bullet points and LaTeX formulas.`
       }
     );
 
+    const chunkTokensUsed = response.usage?.totalTokens || (chunkInputTokens + estimateTokens(response.content));
+    totalChunkTokens += chunkTokensUsed;
+
     return { id: chunk.id, title: chunk.title, summary: response.content };
   });
 
@@ -146,11 +152,21 @@ Output clean structured bullet points and LaTeX formulas.`
     }
   ];
 
+  let synthesisTokens = 0;
+  let hasRecordedChunkedTokens = false;
+
   const synthesisStreamResponse = await marlineRouter.executeStreamWithFallback(
     {
       messages: finalMessages,
       maxTokens: 3400,
       temperature: 0.1,
+      onUsage: (u) => {
+        if (!hasRecordedChunkedTokens && u?.totalTokens) {
+          hasRecordedChunkedTokens = true;
+          synthesisTokens = u.totalTokens;
+          options.onConsumedTokens?.(totalChunkTokens + synthesisTokens);
+        }
+      },
     },
     {
       task: 'summarize',
@@ -160,9 +176,10 @@ Output clean structured bullet points and LaTeX formulas.`
     }
   );
 
-  // Wrap stream with credit deduction hook
+  // Wrap stream with credit deduction hook and token tracking
   const rawReader = synthesisStreamResponse.stream.getReader();
   let hasDeducted = false;
+  let accumulatedBytes = 0;
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -174,7 +191,13 @@ Output clean structured bullet points and LaTeX formulas.`
             hasDeducted = true;
             await onDeductCredits().catch((e) => console.warn("Credit deduction error:", e));
           }
+          if (!hasRecordedChunkedTokens) {
+            hasRecordedChunkedTokens = true;
+            const fallbackSynth = synthesisInputTokens + Math.max(1, Math.ceil(accumulatedBytes / 4));
+            options.onConsumedTokens?.(totalChunkTokens + fallbackSynth);
+          }
         } else if (value) {
+          accumulatedBytes += value.byteLength;
           if (!hasDeducted) {
             hasDeducted = true;
             onDeductCredits().catch((e) => console.warn("Credit deduction error:", e));
@@ -187,6 +210,11 @@ Output clean structured bullet points and LaTeX formulas.`
     },
     cancel() {
       rawReader.cancel();
+      if (!hasRecordedChunkedTokens) {
+        hasRecordedChunkedTokens = true;
+        const fallbackSynth = synthesisInputTokens + Math.max(1, Math.ceil(accumulatedBytes / 4));
+        options.onConsumedTokens?.(totalChunkTokens + fallbackSynth);
+      }
     },
   });
 
@@ -280,11 +308,19 @@ export async function orchestrateDriveAI(options: OrchestratorOptions): Promise<
   }
 
   // ROUTE 2: Direct Multi-Layer Streaming through Marline Router
+  let hasRecordedDirectTokens = false;
+
   const streamResponse = await marlineRouter.executeStreamWithFallback(
     {
       messages: sanitizedApiMessages,
       maxTokens: desiredOutputTokens,
       temperature: 0.15,
+      onUsage: (u) => {
+        if (!hasRecordedDirectTokens && u?.totalTokens) {
+          hasRecordedDirectTokens = true;
+          options.onConsumedTokens?.(u.totalTokens);
+        }
+      },
     },
     {
       task,
@@ -296,6 +332,7 @@ export async function orchestrateDriveAI(options: OrchestratorOptions): Promise<
 
   const rawReader = streamResponse.stream.getReader();
   let hasDeducted = false;
+  let accumulatedBytes = 0;
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -307,7 +344,13 @@ export async function orchestrateDriveAI(options: OrchestratorOptions): Promise<
             hasDeducted = true;
             await onDeductCredits().catch((e) => console.warn("Credit deduction error:", e));
           }
+          if (!hasRecordedDirectTokens) {
+            hasRecordedDirectTokens = true;
+            const fallbackOutput = Math.max(1, Math.ceil(accumulatedBytes / 4));
+            options.onConsumedTokens?.(totalInputTokens + fallbackOutput);
+          }
         } else if (value) {
+          accumulatedBytes += value.byteLength;
           if (!hasDeducted) {
             hasDeducted = true;
             onDeductCredits().catch((e) => console.warn("Credit deduction error:", e));
@@ -320,6 +363,11 @@ export async function orchestrateDriveAI(options: OrchestratorOptions): Promise<
     },
     cancel() {
       rawReader.cancel();
+      if (!hasRecordedDirectTokens) {
+        hasRecordedDirectTokens = true;
+        const fallbackOutput = Math.max(1, Math.ceil(accumulatedBytes / 4));
+        options.onConsumedTokens?.(totalInputTokens + fallbackOutput);
+      }
     },
   });
 
