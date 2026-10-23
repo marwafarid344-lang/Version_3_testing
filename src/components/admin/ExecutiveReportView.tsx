@@ -29,7 +29,11 @@ import {
   ArrowUpRight,
   Layers,
   ChevronDown,
-  Loader2
+  Loader2,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,8 +54,14 @@ import html2canvas from 'html2canvas-pro'
 
 export default function ExecutiveReportView() {
   const [reportData, setReportData] = useState<ExecutiveReportData | null>(null)
-  const [loading, setLoading] = useState<boolean>(true)
+  const [loading, setLoading] = useState<boolean>(false)
   const [exportingPdf, setExportingPdf] = useState<boolean>(false)
+
+  // Security Gate State (Admin Password required to unlock database analytics)
+  const [adminPassword, setAdminPassword] = useState<string>('')
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [showPasswordInput, setShowPasswordInput] = useState<boolean>(false)
 
   // Date range filters
   const [preset, setPreset] = useState<string>('30d')
@@ -66,22 +76,46 @@ export default function ExecutiveReportView() {
 
   const printAreaRef = useRef<HTMLDivElement>(null)
 
-  const fetchReport = async (overrideFrom?: string, overrideTo?: string) => {
+  const fetchReport = async (overrideFrom?: string, overrideTo?: string, passToUse?: string) => {
+    const pwd = passToUse || adminPassword
+    if (!pwd) {
+      setIsUnlocked(false)
+      setAuthError('Please enter your encrypted admin password to execute real database calculations.')
+      return
+    }
+
     setLoading(true)
+    setAuthError(null)
     const activeFrom = overrideFrom !== undefined ? overrideFrom : fromDate
     const activeTo = overrideTo !== undefined ? overrideTo : toDate
+
     try {
       const data = await getPlatformExecutiveReportData({
+        adminPassword: pwd,
         fromDate: `${activeFrom}T00:00:00.000Z`,
         toDate: `${activeTo}T23:59:59.999Z`
       })
       setReportData(data)
+      setIsUnlocked(true)
+      toast.success('Admin authorized: Real platform metrics successfully computed from database!')
     } catch (err: any) {
       console.error('Error fetching executive report:', err)
-      toast.error(err.message || 'Failed to generate executive report')
+      const errorMsg = err.message || 'Failed to authenticate and generate report'
+      setAuthError(errorMsg)
+      toast.error(errorMsg)
+      setIsUnlocked(false)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleUnlock = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!adminPassword.trim()) {
+      setAuthError('Password cannot be empty.')
+      return
+    }
+    fetchReport(undefined, undefined, adminPassword)
   }
 
   const handlePresetChange = (value: string) => {
@@ -108,13 +142,11 @@ export default function ExecutiveReportView() {
       const toStr = now.toISOString().split('T')[0]
       setFromDate(fromStr)
       setToDate(toStr)
-      fetchReport(fromStr, toStr)
+      if (isUnlocked && adminPassword) {
+        fetchReport(fromStr, toStr)
+      }
     }
   }
-
-  useEffect(() => {
-    fetchReport()
-  }, [])
 
   const handleExportPDF = async () => {
     if (!printAreaRef.current) return
@@ -263,30 +295,142 @@ export default function ExecutiveReportView() {
               </div>
             </div>
 
-            <Button
-              onClick={() => fetchReport()}
-              disabled={loading}
-              className="rounded-xl h-9 px-6 text-xs font-bold gap-2 self-end lg:self-auto shrink-0 bg-primary text-primary-foreground"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Apply &amp; Recompute Metrics</span>
-            </Button>
+            {isUnlocked ? (
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="h-9 px-3 text-xs font-semibold gap-1.5 border-emerald-500/30 text-emerald-500 bg-emerald-500/10">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Admin Session Verified</span>
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsUnlocked(false)
+                    setAdminPassword('')
+                    setReportData(null)
+                    toast.info('Admin report locked successfully.')
+                  }}
+                  className="rounded-xl h-9 text-xs font-semibold gap-1.5 border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-all"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Lock</span>
+                </Button>
+                <Button
+                  onClick={() => fetchReport()}
+                  disabled={loading}
+                  className="rounded-xl h-9 px-5 text-xs font-bold gap-2 self-end lg:self-auto shrink-0 bg-primary text-primary-foreground"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Recompute Real Metrics</span>
+                </Button>
+              </div>
+            ) : null}
           </div>
         </CardHeader>
       </Card>
 
       {/* Main Report Document Container */}
       {loading ? (
-        <Card className="py-24 flex flex-col items-center justify-center text-center space-y-4">
-          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <Card className="py-24 flex flex-col items-center justify-center text-center space-y-4 border-primary/20 bg-card/60 backdrop-blur-sm">
+          <div className="p-4 rounded-2xl bg-primary/10 text-primary animate-pulse">
+            <Loader2 className="w-10 h-10 animate-spin" />
+          </div>
           <div className="space-y-1">
-            <h4 className="font-bold text-foreground text-base">Gathering Platform Telemetry...</h4>
-            <p className="text-xs text-muted-foreground">Aggregating database records, support tickets, AI tokens, and cloud consumption.</p>
+            <h4 className="font-bold text-foreground text-base font-rubik">Executing Real Database Telemetry Queries...</h4>
+            <p className="text-xs text-muted-foreground font-rubik max-w-md">
+              Aggregating live records across 4,700+ users, 18,900+ quiz submissions, genuine CAPI AI tokens, and infrastructure storage catalogs.
+            </p>
           </div>
         </Card>
-      ) : !reportData ? (
-        <Card className="py-16 text-center">
-          <p className="text-muted-foreground text-sm">No report data generated. Please select a valid date range.</p>
+      ) : !isUnlocked || !reportData ? (
+        <Card className="border-border/80 bg-card/70 backdrop-blur-md shadow-xl overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
+
+          <CardContent className="py-16 px-6 sm:px-12 flex flex-col items-center text-center max-w-2xl mx-auto space-y-6">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-primary/20 via-primary/10 to-transparent border border-primary/30 flex items-center justify-center text-primary shadow-inner">
+                <Lock className="w-9 h-9" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-amber-500 text-black shadow-md">
+                <KeyRound className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2">
+                <Badge variant="outline" className="border-amber-500/30 text-amber-500 bg-amber-500/10 font-bold text-xs uppercase tracking-wider">
+                  Protected System Action
+                </Badge>
+              </div>
+              <h3 className="text-2xl font-black text-foreground tracking-tight font-rubik">
+                Super Admin Password Verification Required
+              </h3>
+              <p className="text-sm text-muted-foreground font-rubik leading-relaxed">
+                لضمان دقة العمليات الحسابية بنسبة <span className="font-bold text-foreground">100%</span> واعتمادها على استعلامات حقيقية في قاعدة البيانات (مثل فحص سجلات آلاف المستخدمين، واستهلاك CAPI_REQS الحقيقي، وأكثر من 18 ألف اختبار)، يتطلب النظام كلمة سر الأدمن المشفرة للوصول منعا لتنفيذ استعلامات مكلفة بالخطأ.
+              </p>
+            </div>
+
+            {authError && (
+              <div className="w-full p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold text-center flex items-center justify-center gap-2 animate-in fade-in duration-200">
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleUnlock} className="w-full space-y-4 pt-2">
+              <div className="space-y-2 text-left">
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-primary" />
+                  <span>Admin Database Password</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={showPasswordInput ? 'text' : 'password'}
+                    placeholder="Enter your encrypted admin password..."
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value)
+                      if (authError) setAuthError(null)
+                    }}
+                    autoFocus
+                    className="h-12 text-sm rounded-2xl pr-12 font-mono bg-background/80 border-border focus:border-primary shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPasswordInput(!showPasswordInput)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                    tabIndex={-1}
+                  >
+                    {showPasswordInput ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading || !adminPassword.trim()}
+                className="w-full h-12 rounded-2xl font-bold text-sm bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg hover:brightness-105 active:scale-[0.99] transition-all gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Verifying Credentials &amp; Running Analytics...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Authorize &amp; Execute Live Calculations</span>
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="pt-2 text-center">
+              <span className="text-[11px] text-muted-foreground/70">
+                Credentials are automatically verified server-side against bcrypt hash in <code className="text-[11px] px-1 py-0.5 rounded bg-muted">chameleons.pass</code>.
+              </span>
+            </div>
+          </CardContent>
         </Card>
       ) : (
         <div
@@ -434,8 +578,15 @@ export default function ExecutiveReportView() {
                   <h4 className="text-xs font-bold text-foreground print:text-black mb-2.5">Distribution by Academic Year</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {reportData.users.byLevel.map((lvl, i) => (
-                      <div key={i} className="p-2.5 rounded-xl bg-card border border-border/50 print:border-gray-200">
-                        <span className="text-[11px] text-muted-foreground block">{lvl.level}</span>
+                      <div
+                        key={i}
+                        className={`p-2.5 rounded-xl bg-card border border-border/50 print:border-gray-200 ${
+                          lvl.level.includes('Graduates') ? 'col-span-2' : ''
+                        }`}
+                      >
+                        <span className="text-[11px] text-muted-foreground block truncate" title={lvl.level}>
+                          {lvl.level}
+                        </span>
                         <div className="text-base font-black text-foreground mt-0.5">
                           {lvl.count} <span className="text-xs font-normal text-muted-foreground">({lvl.percentage}%)</span>
                         </div>

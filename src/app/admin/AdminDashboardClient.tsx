@@ -1537,7 +1537,7 @@ export default function AdminDashboardClient({
                         <SelectItem value="2">Level 2</SelectItem>
                         <SelectItem value="3">Level 3</SelectItem>
                         <SelectItem value="4">Level 4</SelectItem>
-                        <SelectItem value="unknown">Unspecified</SelectItem>
+                        <SelectItem value="unknown">Graduates and Teaching Assistants</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1756,7 +1756,7 @@ export default function AdminDashboardClient({
                               { name: 'Level 2', value: analyticsData.levelCounts[2] || 0, color: '#10b981' },
                               { name: 'Level 3', value: analyticsData.levelCounts[3] || 0, color: '#eab308' },
                               { name: 'Level 4', value: analyticsData.levelCounts[4] || 0, color: '#a855f7' },
-                              { name: 'Unspecified', value: analyticsData.levelCounts.unknown || 0, color: '#6b7280' },
+                              { name: 'Graduates and Teaching Assistants', value: analyticsData.levelCounts.unknown || 0, color: '#6b7280' },
                             ].filter(d => d.value > 0)}
                             cx="50%"
                             cy="50%"
@@ -1770,7 +1770,7 @@ export default function AdminDashboardClient({
                               { name: 'Level 2', value: analyticsData.levelCounts[2] || 0, color: '#10b981' },
                               { name: 'Level 3', value: analyticsData.levelCounts[3] || 0, color: '#eab308' },
                               { name: 'Level 4', value: analyticsData.levelCounts[4] || 0, color: '#a855f7' },
-                              { name: 'Unspecified', value: analyticsData.levelCounts.unknown || 0, color: '#6b7280' },
+                              { name: 'Graduates and Teaching Assistants', value: analyticsData.levelCounts.unknown || 0, color: '#6b7280' },
                             ].filter(d => d.value > 0).map((entry: any, index: number) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
@@ -1794,13 +1794,13 @@ export default function AdminDashboardClient({
                     </div>
                     
                     {/* Legend */}
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-4 text-[10px] font-medium w-full max-w-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-4 text-[10px] font-medium w-full max-w-sm">
                       {[
                         { name: 'Level 1', value: analyticsData.levelCounts[1] || 0, color: 'bg-blue-500' },
                         { name: 'Level 2', value: analyticsData.levelCounts[2] || 0, color: 'bg-emerald-500' },
                         { name: 'Level 3', value: analyticsData.levelCounts[3] || 0, color: 'bg-yellow-500' },
                         { name: 'Level 4', value: analyticsData.levelCounts[4] || 0, color: 'bg-purple-500' },
-                        { name: 'Unspecified', value: analyticsData.levelCounts.unknown || 0, color: 'bg-gray-500' },
+                        { name: 'Graduates and Teaching Assistants', value: analyticsData.levelCounts.unknown || 0, color: 'bg-gray-500' },
                       ].filter(d => d.value > 0).map((item) => (
                         <div key={item.name} className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
