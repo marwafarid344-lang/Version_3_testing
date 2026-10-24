@@ -1510,6 +1510,10 @@ export interface ExecutiveReportData {
   }
 }
 
+export type ExecutiveReportResult =
+  | { success: true; data: ExecutiveReportData }
+  | { success: false; error: string }
+
 /**
  * Super Admin action to generate comprehensive Executive Analytics Report
  * for a custom date range. Requires verified encrypted admin password.
@@ -1518,40 +1522,57 @@ export async function getPlatformExecutiveReportData(params: {
   adminPassword: string
   fromDate?: string
   toDate?: string
-}): Promise<ExecutiveReportData> {
-  const session = await checkSuperAdmin()
-  const supabase = createAdminClient()
+}): Promise<ExecutiveReportResult> {
+  try {
+    const session = await checkSuperAdmin()
+    const supabase = createAdminClient()
 
-  // 0. Strict Admin Encrypted Password Verification from chameleons table
-  if (!params?.adminPassword || typeof params.adminPassword !== 'string' || params.adminPassword.trim() === '') {
-    throw new Error('Authentication required: Please enter your admin password (مطلوب إدخال كلمة سر الأدمن للوصول للتقرير).')
-  }
+    // 0. Strict Admin Encrypted Password Verification from chameleons table
+    if (!params?.adminPassword || typeof params.adminPassword !== 'string' || params.adminPassword.trim() === '') {
+      return { success: false, error: 'Authentication required: Please enter your admin password.' }
+    }
 
-  const { data: adminRecord, error: adminFetchError } = await supabase
-    .from('chameleons')
-    .select('pass')
-    .eq('auth_id', session.auth_id)
-    .single()
+    const { data: adminRecord, error: adminFetchError } = await supabase
+      .from('chameleons')
+      .select('pass')
+      .eq('auth_id', session.auth_id)
+      .single()
 
-  if (adminFetchError || !adminRecord?.pass) {
-    throw new Error('Verification failed: Could not load encrypted credentials from database.')
-  }
+    if (adminFetchError || !adminRecord?.pass) {
+      return { success: false, error: 'Verification failed: Could not load encrypted credentials from database.' }
+    }
 
-  const isPasswordMatch = await bcrypt.compare(params.adminPassword, adminRecord.pass)
-  if (!isPasswordMatch) {
-    throw new Error('Invalid Password: كلمة السر غير صحيحة. تم رفض الوصول للحسابات التنفيذية منعاً لتنفيذ استعلامات مكلفة بالخطأ.')
-  }
+    const isPasswordMatch = await bcrypt.compare(params.adminPassword, adminRecord.pass)
+    if (!isPasswordMatch) {
+      return {
+        success: false,
+        error: 'Invalid password. Access to executive analytics has been denied to prevent accidental costly queries.'
+      }
+    }
 
-  const now = new Date()
-  const defaultToDate = now.toISOString()
-  const defaultFromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const now = new Date()
+    const defaultToDate = now.toISOString()
+    const defaultFromDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const parseDateToIso = (value: string | undefined, fallback: string) => {
+      if (!value) return fallback
+      const parsed = new Date(value)
+      return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+    }
 
-  const fromDate = params?.fromDate ? new Date(params.fromDate).toISOString() : defaultFromDate
-  const toDate = params?.toDate ? new Date(params.toDate).toISOString() : defaultToDate
+    const fromDate = parseDateToIso(params?.fromDate, defaultFromDate)
+    const toDate = parseDateToIso(params?.toDate, defaultToDate)
 
-  const fromTime = new Date(fromDate).getTime()
-  const toTime = new Date(toDate).getTime()
-  const durationDays = Math.max(1, Math.round((toTime - fromTime) / (1000 * 60 * 60 * 24)))
+    if (!fromDate || !toDate) {
+      return { success: false, error: 'Invalid date range. Please select valid from/to dates.' }
+    }
+
+    const fromTime = new Date(fromDate).getTime()
+    const toTime = new Date(toDate).getTime()
+    if (fromTime > toTime) {
+      return { success: false, error: 'Invalid date range. The "From Date" must be before the "To Date".' }
+    }
+
+    const durationDays = Math.max(1, Math.round((toTime - fromTime) / (1000 * 60 * 60 * 24)))
 
   // 1. Fetch Users in parallel batches to bypass PostgREST 1000-row limit
   const { count: totalDbUsersCount } = await supabase
@@ -1776,7 +1797,9 @@ export async function getPlatformExecutiveReportData(params: {
   const serverlessInvocations = Math.round(estimatedEdgeRequests * 0.35)
   const bandwidthUsedGb = Math.round(((estimatedEdgeRequests * 42) / (1024 * 1024)) * 100) / 100 + 1.25
 
-  return {
+    return {
+      success: true,
+      data: {
     timeframe: {
       fromDate,
       toDate,
@@ -1839,6 +1862,13 @@ export async function getPlatformExecutiveReportData(params: {
         systemHealth: '100% Uptime'
       }
     }
+      }
+    }
+  } catch (error) {
+    console.error('Error generating executive report:', error)
+    return {
+      success: false,
+      error: 'Failed to generate executive report. Please try again.'
+    }
   }
 }
-
