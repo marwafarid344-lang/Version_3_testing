@@ -342,29 +342,69 @@ export function getBylawContextForQuery(query: string, userMeta?: MarlineUserSes
     }
   }
 
-  // 4. Exact Arabic and English titles
+  // 4. HYBRID SEARCH: Token overlap + BM25-like scoring across Arabic & English names and descriptions
   if (matchedCourseCodes.size < 4) {
-    for (const c of allBylawCourses) {
-      const nameEn = (c.name_en || '').toLowerCase();
-      const nameAr = (c.name_ar || '').toLowerCase();
-      if (nameEn && normalized.includes(nameEn)) {
-        matchedCourseCodes.add(c.code);
-      } else if (nameAr && normalized.includes(nameAr)) {
-        matchedCourseCodes.add(c.code);
-      }
-      if (matchedCourseCodes.size >= 5) break;
-    }
-  }
+    // Tokenize user query into meaningful words (length >= 3)
+    const queryTokens = normalized
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter(t => t.length >= 2 && !['في', 'من', 'على', 'الى', 'عن', 'مع', 'ما', 'هو', 'هي', 'ايه', 'the', 'and', 'for', 'with', 'about'].includes(t));
 
-  if (matchedCourseCodes.size < 4) {
-    for (const e of allProgramElectives) {
-      const nameEn = (e.name_en || '').toLowerCase();
-      const nameAr = (e.name_ar || '').toLowerCase();
-      if (nameEn && normalized.includes(nameEn)) {
-        matchedCourseCodes.add(e.code);
-      } else if (nameAr && normalized.includes(nameAr)) {
-        matchedCourseCodes.add(e.code);
+    interface ScoredCandidate {
+      code: string;
+      score: number;
+    }
+    const scoredCandidates: ScoredCandidate[] = [];
+
+    // Helper to score document against query tokens
+    const computeRelevance = (docText: string, weights: { exactMatch: number; tokenMatch: number }) => {
+      let score = 0;
+      const lowerDoc = docText.toLowerCase();
+      if (lowerDoc.includes(normalized) || normalized.includes(lowerDoc)) {
+        score += weights.exactMatch;
       }
+      for (const token of queryTokens) {
+        if (lowerDoc.includes(token)) {
+          score += weights.tokenMatch;
+          // Exact word boundary bonus
+          if (new RegExp(`\\b${token}\\b`, 'i').test(lowerDoc)) {
+            score += weights.tokenMatch * 0.5;
+          }
+        }
+      }
+      return score;
+    };
+
+    // Score all bylaw courses
+    for (const c of allBylawCourses) {
+      if (matchedCourseCodes.has(c.code)) continue;
+      const nameEn = c.name_en || '';
+      const nameAr = c.name_ar || '';
+      const notes = c.notes || '';
+      const textToScore = `${nameAr} ${nameEn} ${c.code} ${notes}`;
+      const score = computeRelevance(textToScore, { exactMatch: 20, tokenMatch: 4 });
+      if (score >= 4) {
+        scoredCandidates.push({ code: c.code, score });
+      }
+    }
+
+    // Score all program electives
+    for (const e of allProgramElectives) {
+      if (matchedCourseCodes.has(e.code)) continue;
+      const nameEn = e.name_en || '';
+      const nameAr = e.name_ar || '';
+      const desc = e.description || '';
+      const textToScore = `${nameAr} ${nameEn} ${e.code} ${e.alternative_code || ''} ${desc}`;
+      const score = computeRelevance(textToScore, { exactMatch: 20, tokenMatch: 4 });
+      if (score >= 4) {
+        scoredCandidates.push({ code: e.code, score });
+      }
+    }
+
+    // Sort by score descending and take highest matches
+    scoredCandidates.sort((a, b) => b.score - a.score);
+    for (const sc of scoredCandidates) {
+      matchedCourseCodes.add(sc.code);
       if (matchedCourseCodes.size >= 5) break;
     }
   }

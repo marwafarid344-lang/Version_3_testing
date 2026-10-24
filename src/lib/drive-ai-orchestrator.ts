@@ -295,7 +295,7 @@ export async function orchestrateDriveAI(options: OrchestratorOptions): Promise<
     task,
   });
 
-  if (task === 'summarize' && groqBudget.requiresChunking && sanitizedContext.length > 8000) {
+  if (task === 'summarize' && (groqBudget.requiresChunking || sanitizedContext.length > 8000)) {
     const chunks = chunkDocumentSemantically(sanitizedContext, {
       targetChunkTokens: 2800,
       maxChunkTokens: 3600,

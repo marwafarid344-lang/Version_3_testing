@@ -101,10 +101,23 @@ export async function POST(req: Request) {
       Registrations: session.Registrations || clientUserSession?.Registrations || null,
     };
 
-    // Token-efficient conversational history pruning (keep last 5 messages, truncate older turns)
+    // Token-efficient conversational history pruning + Rolling Summary
     const rawMessages = (Array.isArray(messages) ? messages : []).filter(
       (m: { role?: string; content?: unknown }) => m && m.role !== "system"
     );
+
+    // Build Rolling Summary if conversation history is long (more than 5 messages)
+    let rollingSummary = "";
+    if (rawMessages.length > 5) {
+      const olderMessages = rawMessages.slice(0, -4);
+      const summaryPoints = olderMessages.map((m: { role?: string; content?: unknown }) => {
+        const roleName = m.role === 'assistant' ? 'Marline' : 'User';
+        const snippet = typeof m.content === "string" ? m.content.replace(/\s+/g, ' ').slice(0, 140) : '';
+        return `• ${roleName}: ${snippet}`;
+      });
+      rollingSummary = `[سياق المحادثة التراكمي السابق (Rolling Summary of previous conversation)]:\n${summaryPoints.join('\n')}`;
+    }
+
     const recentMessages = rawMessages.slice(-5).map((m: { role?: string; content?: unknown }, idx: number, arr: unknown[]) => {
       const isLatest = idx === arr.length - 1;
       const maxLen = isLatest ? 2000 : 700;
@@ -124,7 +137,8 @@ export async function POST(req: Request) {
     const effectiveSystemPrompt = [
       MARLINE_SYSTEM_PROMPT,
       userSessionContext,
-      bylawContext
+      bylawContext,
+      rollingSummary
     ].filter(Boolean).join('\n\n');
 
     const formattedMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [

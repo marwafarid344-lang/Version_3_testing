@@ -38,6 +38,8 @@ import { useColorTheme } from "@/components/color-theme-provider";
 import { useTheme } from "@/components/theme-provider";
 import { useRouter } from "next/navigation";
 import { getStudentSession } from "@/lib/auth";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas-pro";
 
 export const THEME_OPTIONS = [
   { id: "default", name: "Emerald", hex: "#10b981" },
@@ -909,6 +911,7 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
   const [sessionUser, setSessionUser] = useState<any | null>(null);
   const [showQuizConfigModal, setShowQuizConfigModal] = useState(false);
   const [selectedQuestionCount, setSelectedQuestionCount] = useState<number>(10);
+  const [selectedQuestionType, setSelectedQuestionType] = useState<'all' | 'mcq' | 'true_false'>('all');
   const [isCustomCount, setIsCustomCount] = useState<boolean>(false);
   const [customCountValue, setCustomCountValue] = useState<string>("10");
   const [userCredits, setUserCredits] = useState<number | null>(null);
@@ -1039,7 +1042,7 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
     }
   };
 
-  const sendMessage = async (userText: string, task?: string, customQCount?: number) => {
+  const sendMessage = async (userText: string, task?: string, customQCount?: number, customQType?: 'all' | 'mcq' | 'true_false') => {
     if (!userText.trim() && !task) return;
 
     // Abort any ongoing stream
@@ -1060,6 +1063,9 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
     } else if (task === 'translate') {
       newMessages.push({ role: "user", content: `Translate this document into ${language}` });
       setMessages(newMessages);
+    } else if (task === 'solve-exam') {
+      newMessages.push({ role: "user", content: "Solve this previous exam completely with answers and explanations" });
+      setMessages(newMessages);
     }
 
     setLoading(true);
@@ -1068,6 +1074,7 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
 
     try {
       const qCount = customQCount || selectedQuestionCount || 10;
+      const qType = customQType || selectedQuestionType || 'all';
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1077,7 +1084,8 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
           task,
           language,
           messages: newMessages,
-          questionCount: qCount
+          questionCount: qCount,
+          questionType: qType
         }),
       });
 
@@ -1125,6 +1133,22 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
           tokensCost: tokensCost
         }]);
         toast.success("Quiz generated successfully!");
+        setLoading(false);
+        return;
+      }
+
+      // Handle Solve Exam as structured response
+      if (task === 'solve-exam') {
+        const data = await response.json();
+        const assistantContent = typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: assistantContent,
+          tier: tierHeader,
+          tierLabel: tierLabelHeader,
+          tokensCost: tokensCost
+        }]);
+        toast.success("Exam solved successfully!");
         setLoading(false);
         return;
       }
@@ -1257,121 +1281,98 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
 
   const pdfContentRef = useRef<HTMLDivElement>(null);
 
-  const downloadAsPDF = async (content: string, msgElement?: HTMLElement | null) => {
-    const toastId = toast.loading("Preparing native PDF...");
-    try {
-      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      // Dynamically use the active theme accent color (covers all 22 themes accurately)
-      const activeThemeColor = activeClasses.accent || "#10b981";
+  const downloadAsPDF = async (content: string, msgElement?: HTMLElement | null, customTitle?: string) => {
+    const toastId = toast.loading("Generating Marline PDF report...");
+    const rawFileName = file?.name?.replace(/\.[^/.]+$/, "") || 'Document';
+    const isExam = !!customTitle?.toLowerCase().includes('exam') || !!content?.includes('examTitle') || !!content?.includes('Question 1') || !!content?.includes('"questions"');
+    const pdfTitle = customTitle || `${rawFileName} - Marline Summary`;
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const activeThemeColor = activeClasses.accent || "#10b981";
 
-      let bodyHtml = '';
-      if (msgElement) {
-        // Clone to avoid modifying the actual UI
+    const containersToClean: HTMLElement[] = [];
+
+    try {
+      // 1. Prepare raw blocks of content
+      let blocks: string[] = [];
+      let parsedData: any = null;
+
+      try {
+        const cleaned = content.replace(/```json|```/g, '').trim();
+        parsedData = JSON.parse(cleaned);
+      } catch (_) {
+        try {
+          parsedData = JSON.parse(content);
+        } catch (_) {}
+      }
+
+      if (parsedData?.questions && Array.isArray(parsedData.questions)) {
+        // Exam question cards as distinct blocks
+        blocks = parsedData.questions.map((q: any, i: number) => {
+          const qNum = q.numb || (i + 1);
+          const points = q.points || 1.0;
+          const choices = q.options || q.choices || [];
+          const correctAns = q.answer || q.correct_answer || q.correctAnswer || '';
+          const explanation = q.explanation || q.rationale || q.solution || '';
+          const questionText = q.question || q.prompt || q.text || q.questionText || '';
+
+          return `
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 22px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); margin-bottom: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
+                <span style="font-weight: 800; font-size: 14px; color: ${activeThemeColor}; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Question ${qNum}
+                </span>
+                <span style="font-size: 11px; font-weight: 700; background: ${activeThemeColor}14; color: ${activeThemeColor}; border: 1px solid ${activeThemeColor}40; padding: 2px 9px; border-radius: 9999px;">
+                  ${points} Mark${points > 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div style="font-size: 14.5px; font-weight: 600; color: #0f172a; margin-bottom: 14px; line-height: 1.6;">
+                ${questionText}
+              </div>
+
+              ${q.table ? `
+                <div style="margin: 10px 0 14px; overflow-x: auto;">
+                  ${q.table}
+                </div>
+              ` : ''}
+
+              ${choices.length > 0 ? `
+                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+                  ${choices.map((c: any) => {
+                    const cText = typeof c === 'string' ? c : (c.text || '');
+                    const cKey = typeof c === 'string' ? c.slice(0, 2).replace(/[\).]/, '').trim() : (c.id || '');
+                    const isCorrect = String(cText).trim() === String(correctAns).trim() ||
+                                      (cKey && String(cKey).toLowerCase() === String(correctAns).toLowerCase()) ||
+                                      (typeof c === 'object' && c.isCorrect) ||
+                                      (correctAns && cText && correctAns.trim().startsWith(cText.slice(0, 2)));
+
+                    return `
+                      <div style="padding: 9px 14px; border-radius: 10px; font-size: 13.5px; display: flex; align-items: center; justify-content: space-between; ${
+                        isCorrect 
+                          ? `background: ${activeThemeColor}14; border: 1.5px solid ${activeThemeColor}; color: #0f172a; font-weight: 700;` 
+                          : `background: #f8fafc; border: 1px solid #e2e8f0; color: #334155;`
+                      }">
+                        <span>${cText}</span>
+                        ${isCorrect ? `<span style="font-size: 11px; padding: 2px 8px; border-radius: 6px; background: ${activeThemeColor}; color: #ffffff; font-weight: 800;">✓ Correct</span>` : ''}
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              ` : ''}
+
+              ${explanation ? `
+                <div style="margin-top: 12px; padding: 12px 16px; border-radius: 12px; background: #f8fafc; border-left: 3.5px solid ${activeThemeColor}; font-size: 13px; color: #475569; line-height: 1.6;">
+                  <strong style="color: ${activeThemeColor}; display: block; margin-bottom: 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">Explanation &amp; Rationale:</strong>
+                  ${explanation}
+                </div>
+              ` : ''}
+            </div>
+          `;
+        });
+      } else if (msgElement) {
+        // Clone message element and sanitize all dark mode classes/white text
         const clone = msgElement.cloneNode(true) as HTMLElement;
         clone.querySelectorAll('[data-pdf-exclude]').forEach(el => el.remove());
-
-        // Ensure all text in dark mode is cleanly converted to rich black/dark slate for the PDF, while preserving highlights
-        clone.querySelectorAll('*').forEach(el => {
-          const htmlEl = el as HTMLElement;
-          const isKatex = !!(htmlEl.closest('.katex') || htmlEl.closest('.katex-display') || htmlEl.classList.contains('katex') || htmlEl.classList.contains('katex-display'));
-          if (isKatex) {
-            // NEVER alter KaTeX math elements with badges, borders, or backgrounds!
-            return;
-          }
-
-          const isCode = (htmlEl.tagName === 'CODE' || htmlEl.classList.contains('hljs')) && !htmlEl.closest('pre');
-          const isCodeBlock = htmlEl.closest('[data-code-block="true"]') || htmlEl.getAttribute('data-code-block') === 'true';
-          const isSvg = htmlEl.closest('svg');
-          const isStrong = htmlEl.tagName === 'STRONG';
-
-          if (isStrong) {
-            if (htmlEl.querySelector('.katex')) {
-              htmlEl.style.fontWeight = '700';
-              htmlEl.style.color = '#1e293b';
-              htmlEl.style.display = 'inline';
-              htmlEl.style.border = 'none';
-              htmlEl.style.padding = '0';
-              htmlEl.style.backgroundColor = 'transparent';
-            } else {
-              htmlEl.style.backgroundColor = `${activeThemeColor}18`;
-              htmlEl.style.color = '#1e293b';
-              htmlEl.style.borderRadius = '5px';
-              htmlEl.style.padding = '2px 7px';
-              htmlEl.style.fontWeight = '700';
-              htmlEl.style.display = 'inline-block';
-              htmlEl.style.border = `1.5px solid ${activeThemeColor}`;
-            }
-          } else if (isCode && !htmlEl.closest('pre')) {
-            htmlEl.style.backgroundColor = `${activeThemeColor}18`;
-            htmlEl.style.color = '#1e293b';
-            htmlEl.style.borderRadius = '4px';
-            htmlEl.style.padding = '2px 6px';
-            htmlEl.style.fontWeight = '700';
-            htmlEl.style.border = `1.5px solid ${activeThemeColor}`;
-          } else if (!isCode && !isCodeBlock && !isSvg) {
-            htmlEl.style.color = '#1f2937';
-            htmlEl.style.backgroundColor = '';
-            if (htmlEl.className && typeof htmlEl.className === 'string') {
-              htmlEl.className = htmlEl.className
-                .replace(/text-white(\/\d+)?/g, 'text-slate-900')
-                .replace(/text-\[#.*?\]/g, '')
-                .replace(/bg-\[#.*?\]/g, '');
-            }
-          }
-        });
-
-        // Flawlessly inject absolute SVG overrides directly inside each Mermaid SVG to force clean white backgrounds and black text for print
-        clone.querySelectorAll('.mermaid-dark svg, .mermaid-light svg, [class*="mermaid"] svg').forEach(svgEl => {
-          const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-          style.innerHTML = `
-            rect, polygon, circle, path.node, [class*="label"] rect, .edgeLabel rect, .label rect, rect.label-container, rect.edgeLabel {
-              fill: #ffffff !important;
-              background-color: #ffffff !important;
-              background: #ffffff !important;
-              stroke: #94a3b8 !important;
-              stroke-width: 1.5px !important;
-            }
-            foreignObject, foreignObject div, foreignObject span, foreignObject *, .edgeLabel span, .label div, div.label {
-              background: #ffffff !important;
-              background-color: #ffffff !important;
-              color: #000000 !important;
-            }
-            text, tspan, span, div, *, [class*="label"] *, .edgeLabel * {
-              color: #000000 !important;
-              fill: #000000 !important;
-              font-weight: 800 !important;
-            }
-            path.edgePath, .edgePath .path, .edgePath path, marker path, .arrowheadPath {
-              stroke: #475569 !important;
-              fill: #475569 !important;
-              stroke-width: 1.5px !important;
-            }
-          `;
-          svgEl.appendChild(style);
-        });
-
-        // Clean table wrappers and ensure all parents have breakInside: auto so tables paginate seamlessly like MS Word
-        clone.querySelectorAll('.overflow-x-auto, [class*="overflow"]').forEach(el => {
-          el.classList.remove('overflow-x-auto', 'overflow-hidden', 'overflow-auto', 'border', 'rounded-xl', 'shadow-sm');
-          (el as HTMLElement).style.overflow = 'visible';
-          (el as HTMLElement).style.border = 'none';
-          (el as HTMLElement).style.boxShadow = 'none';
-          (el as HTMLElement).style.borderRadius = '0';
-        });
-
-        clone.querySelectorAll('table').forEach(tableEl => {
-          (tableEl as HTMLElement).style.pageBreakInside = 'auto';
-          (tableEl as HTMLElement).style.breakInside = 'auto';
-          let parent = tableEl.parentElement;
-          while (parent && parent !== clone) {
-            (parent as HTMLElement).style.pageBreakInside = 'auto';
-            (parent as HTMLElement).style.breakInside = 'auto';
-            (parent as HTMLElement).style.overflow = 'visible';
-            parent = parent.parentElement;
-          }
-        });
-
-        // Strip any thinking process elements or scratchpad commentary from the PDF export
         clone.querySelectorAll('p, blockquote, div').forEach(el => {
           const txt = el.textContent?.trim() || '';
           if (txt.startsWith("Here's a thinking process") || txt.startsWith("Thinking Process:") || txt.startsWith("Analyze User Input:")) {
@@ -1379,705 +1380,415 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
           }
         });
 
-        bodyHtml = clone.innerHTML;
-      } else {
-        const cleanedContent = stripThinkingProcess(content);
-        bodyHtml = cleanedContent.replace(/\n/g, '<br/>');
-      }
-
-      // Create a hidden iframe
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = 'none';
-      document.body.appendChild(iframe);
-
-      const fileName = file?.name?.split('.')[0] || 'summary';
-
-      // Inject full CSS including KaTeX for native vector rendering
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${fileName}_marline_summary</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;600;700&display=swap');
-            
-            body { 
-              font-family: 'Inter', system-ui, sans-serif; 
-              color: #111827; 
-              padding: 40px 50px; 
-              line-height: 1.68;
-              font-size: 15px;
-              background: white;
-            }
-            .header {
-              margin-bottom: 28px; padding-bottom: 20px; border-bottom: 3px solid ${activeThemeColor};
-            }
-            .header-flex { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
-            .header-img { width: 42px; height: 42px; border-radius: 10px; object-fit: contain; }
-            .title { font-size: 26px; font-weight: 900; color: ${activeThemeColor}; letter-spacing: -0.5px; margin: 0; }
-            .subtitle { font-size: 11.5px; color: #6b7280; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; }
-            .meta { display: flex; gap: 20px; padding: 12px 16px; background: #f8fafc; border-radius: 8px; font-size: 12.5px; color: #6b7280; }
-            .meta strong { color: #374151; }
-            
-            /* PDF Markdown Styles & High-Contrast overrides for White Background */
-            .content {
-              margin-top: 24px !important;
-            }
-            .content, .content p, .content li, 
-            .content span:not([class*="mermaid"] *):not([class*="hljs"] *):not(pre *), 
-            .content div:not([class*="mermaid"] *):not([class*="hljs"] *):not(pre *):not([class*="rounded-xl"]) {
-              color: #1f2937 !important;
-            }
-
-            .content p {
-              margin: 12px 0 !important;
-              font-size: 14.5px !important;
-              line-height: 1.7 !important;
-            }
-            
-            /* Preserve KaTeX specific internal colors */
-            .content .katex, .content .katex * {
-              color: inherit !important;
-            }
-
-            .content .katex-display {
-              display: block !important;
-              width: 100% !important;
-              text-align: center !important;
-              margin: 20px 0 !important;
-              padding: 16px 20px !important;
-              background: #f8fafc !important;
-              border: 1px solid #e2e8f0 !important;
-              border-radius: 8px !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-            .content .katex-display::before {
-              display: none !important;
-            }
-            
-            .content h2 { 
-              font-size: 19.5px !important; 
-              font-weight: 900 !important; 
-              color: ${activeThemeColor} !important; 
-              margin: 28px 0 10px !important; 
-              padding-top: 6px !important;
-              padding-bottom: 5px !important;
-              border-bottom: 1.5px solid ${activeThemeColor}40 !important;
-              page-break-after: avoid !important;
-              break-after: avoid-page !important;
-            }
-            .content h2 * {
-              color: ${activeThemeColor} !important;
-            }
-            
-            .content h3 { 
-              font-size: 15px !important; 
-              font-weight: 700 !important; 
-              color: ${activeThemeColor} !important; 
-              margin: 20px 0 8px !important; 
-              padding-bottom: 3px !important;
-              page-break-after: avoid !important;
-              break-after: avoid-page !important;
-            }
-            .content h3 * {
-              color: ${activeThemeColor} !important;
-            }
-            
-            .content h4 { 
-              font-size: 13px !important; 
-              font-weight: 700 !important; 
-              color: #374151 !important; 
-              margin: 14px 0 6px !important; 
-              page-break-after: avoid !important;
-              break-after: avoid-page !important;
-            }
-            .content h4 * {
-              color: #374151 !important;
-            }
-
-            .content h2 + *, .content h3 + *, .content h4 + * {
-              page-break-before: avoid !important;
-              break-before: avoid-page !important;
-            }
-            
-            .content strong { 
-              font-weight: 700 !important; 
-              color: #111827 !important; 
-            }
-            .content strong * {
-              color: #111827 !important;
-              font-weight: 700 !important;
-            }
-            
-            .content em { 
-              color: ${activeThemeColor} !important; 
-              font-style: italic !important; 
-            }
-            .content em * {
-              color: ${activeThemeColor} !important;
-              font-style: italic !important;
-                 /* ==========================================================================
-               ACADEMIC DATA TABLES (PDF EXPORT — WORD-LIKE AUTO SPLIT)
-               ========================================================================== */
-            .table-print-wrapper,
-            .content .overflow-x-auto,
-            .content div.overflow-x-auto {
-              overflow: visible !important;
-              overflow-x: visible !important;
-              overflow-y: visible !important;
-              display: block !important;
-              width: 100% !important;
-              border: none !important;
-              box-shadow: none !important;
-              border-radius: 0 !important;
-              margin: 10px 0 !important;
-              padding: 0 !important;
-              page-break-inside: auto !important;
-              break-inside: auto !important;
-            }
-
-            .content table { 
-              width: 100% !important; 
-              border-collapse: collapse !important; 
-              table-layout: auto !important;
-              margin: 10px 0 !important; 
-              font-size: 11px !important; 
-              line-height: 1.4 !important;
-              page-break-inside: auto !important;
-              break-inside: auto !important;
-              page-break-before: auto !important;
-              break-before: auto !important;
-              border: 1.5px solid #cbd5e1 !important;
-            }
-
-            .content thead {
-              display: table-header-group !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              page-break-after: avoid !important;
-              break-after: avoid !important;
-            }
-
-            .content thead tr {
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              page-break-after: avoid !important;
-              break-after: avoid !important;
-            }
-
-            .content tbody {
-              display: table-row-group !important;
-              page-break-inside: auto !important;
-              break-inside: auto !important;
-            }
-
-            .content tbody tr, .content tr {
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-
-            .content th { 
-              background-color: ${activeThemeColor}18 !important;
-              color: #0f172a !important; 
-              padding: 8px 12px !important; 
-              text-align: left !important; 
-              font-weight: 800 !important; 
-              font-size: 10px !important;
-              text-transform: uppercase !important;
-              letter-spacing: 0.5px !important;
-              border: 1px solid ${activeThemeColor}40 !important; 
-              border-bottom: 2px solid ${activeThemeColor} !important;
-              vertical-align: middle !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-
-            .content th * {
-              color: #0f172a !important;
-              font-weight: 800 !important;
-            }
-
-            .content td { 
-              padding: 8px 12px !important; 
-              border: 1px solid ${activeThemeColor}30 !important; 
-              color: #374151 !important; 
-              vertical-align: top !important;
-              font-size: 11px !important; 
-              word-break: break-word !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-
-            .content td * {
-              color: #374151 !important;
-            }
-
-            .content tr:nth-child(even) td { 
-              background-color: #f8fafc !important; 
-            }
-
-            .content tr:hover td {
-              background-color: #f1f5f9 !important;
-            }
-            
-            .content blockquote { 
-              border-left: 4px solid ${activeThemeColor} !important; 
-              padding: 10px 16px !important; 
-              margin: 14px 0 !important; 
-              background-color: ${activeThemeColor}0d !important;
-              border-radius: 0 8px 8px 0 !important; 
-              color: #1f2937 !important; 
-              font-weight: 500 !important; 
-              font-style: italic !important; 
-            }
-            .content blockquote * {
-              color: #1f2937 !important;
-            }
-            
-            .content ul { 
-              padding-left: 20px !important; 
-              margin: 8px 0 !important; 
-              list-style-type: disc !important;
-              page-break-inside: auto !important;
-              break-inside: auto !important;
-            }
-            
-            .content ol { 
-              padding-left: 20px !important; 
-              margin: 8px 0 !important; 
-              list-style-type: decimal !important;
-              page-break-inside: auto !important;
-              break-inside: auto !important;
-            }
-            
-            /* Top-level list items: allow natural page flow */
-            .content > ul > li,
-            .content > ol > li,
-            .content div > ul > li { 
-              margin: 8px 0 12px 0 !important;
-              padding-bottom: 8px !important;
-              border-bottom: 1px dashed #e2e8f0 !important;
-              color: #374151 !important; 
-              display: list-item !important;
-              line-height: 1.5 !important;
-              page-break-inside: auto !important;
-              break-inside: auto !important;
-            }
-
-            .content li:has(table), 
-            .content li:has(tbody),
-            .content div:has(table) {
-              page-break-inside: auto !important;
-              break-inside: auto !important;
-              page-break-before: auto !important;
-              break-before: auto !important;
-            }
-
-            .content > ul > li:last-child,
-            .content > ol > li:last-child,
-            .content div > ul > li:last-child {
-              border-bottom: none !important;
-              margin-bottom: 4px !important;
-              padding-bottom: 0 !important;
-            }
-            
-            /* Nested sub-items inside a category should NOT have borders */
-            .content li ul > li,
-            .content li ol > li { 
-              margin: 3px 0 !important;
-              padding-left: 2px !important;
-              padding-bottom: 0 !important;
-              border-bottom: none !important;
-              color: #374151 !important; 
-              display: list-item !important;
-              line-height: 1.5 !important;
-            }
-            
-            .content li *:not(strong):not(strong *):not(code) {
-              color: #374151 !important;
-            }
-            
-            .content hr { 
-              border: none !important; 
-              border-top: 1px solid #e5e7eb !important; 
-              margin: 18px 0 !important; 
-            }
-            
-            .content strong {
-              background-color: ${activeThemeColor}18 !important;
-              color: #1e293b !important;
-              padding: 2px 7px !important;
-              border-radius: 5px !important;
-              font-weight: 700 !important;
-              display: inline-block !important;
-              border: 1.5px solid ${activeThemeColor} !important;
-            }
-            .content strong:has(.katex) {
-              background-color: transparent !important;
-              border: none !important;
-              padding: 0 !important;
-              display: inline !important;
-            }
-            .content strong * {
-              color: #1e293b !important;
-            }
-            .content .katex,
-            .content .katex * {
-              border: none !important;
-              background: transparent !important;
-              box-shadow: none !important;
-            }
-
-            .content code:not(pre code) { 
-              background-color: ${activeThemeColor}18 !important; 
-              color: #1e293b !important; 
-              padding: 2px 6px !important; 
-              border-radius: 4px !important; 
-              border: 1.5px solid ${activeThemeColor} !important; 
-              font-size: 12px !important; 
-              font-weight: 700 !important;
-              font-family: 'Roboto Mono', monospace !important; 
-              display: inline-block !important;
-            }
-            
-            /* Light IDE Code Block for Clean PDF Printing */
-            .content [data-code-block="true"] {
-              background-color: #ffffff !important;
-              border: 1.5px solid ${activeThemeColor} !important;
-              border-radius: 8px !important;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
-              margin: 16px 0 !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              overflow: hidden !important;
-              color: #0f172a !important;
-            }
-
-            .content [data-code-block="true"] > div:first-child {
-              background-color: #f1f5f9 !important;
-              border-bottom: 1px solid ${activeThemeColor}40 !important;
-              color: #475569 !important;
-              padding: 6px 12px !important;
-            }
-
-            .content [data-code-block="true"] span {
-              color: #0f172a !important;
-            }
-
-            .content pre { 
-              background-color: #ffffff !important; 
-              color: #0f172a !important;
-              padding: 14px 16px !important; 
-              border-radius: 0 0 8px 8px !important; 
-              border: none !important; 
-              overflow-x: auto !important; 
-              margin: 0 !important; 
-              font-family: 'Roboto Mono', monospace !important;
-              font-size: 11.5px !important;
-              line-height: 1.6 !important;
-            }
-            
-            .content pre code { 
-              background-color: transparent !important; 
-              padding: 0 !important; 
-              color: #0f172a !important; 
-              border: none !important; 
-              font-family: 'Roboto Mono', monospace !important;
-            }
-
-            /* Rich Colorful Syntax Highlighting for White Code Blocks in Print */
-            .content .hljs-keyword, .content .hljs-selector-tag, .content .hljs-subst, .content .hljs-section {
-              color: #d32f2f !important; /* Crimson Red Keywords */
-              font-weight: 700 !important;
-            }
-            .content .hljs-title, .content .hljs-title.function_, .content .hljs-title.hljs-function, .content .hljs-function {
-              color: #1565c0 !important; /* Bold Blue for functions */
-              font-weight: 700 !important;
-            }
-            .content .hljs-string, .content .hljs-doctag, .content .hljs-regexp {
-              color: #2e7d32 !important; /* Forest Green for strings */
-              font-weight: 500 !important;
-            }
-            .content .hljs-number, .content .hljs-literal {
-              color: #e65100 !important; /* Burnt Orange for numbers */
-              font-weight: 600 !important;
-            }
-            .content .hljs-comment, .content .hljs-quote {
-              color: #78909c !important; /* Cool Slate for comments */
-              font-style: italic !important;
-            }
-            .content .hljs-variable, .content .hljs-template-variable {
-              color: #e65100 !important;
-            }
-            .content .hljs-built_in, .content .hljs-type, .content .hljs-class {
-              color: #7b1fa2 !important; /* Deep Purple for types */
-              font-weight: 600 !important;
-            }
-            .content .hljs-attr, .content .hljs-property, .content .hljs-attribute {
-              color: #0277bd !important;
-            }
-            .content .hljs-params {
-              color: #37474f !important;
-            }
-            
-             .katex { 
-              font-size: 1.15em !important; 
-              line-height: 1.5 !important;
-            }
-
-            .content .katex-display:empty,
-            .content .katex-display:not(:has(.base)),
-            .content .katex-display:not(:has(.katex)) {
-              display: none !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              border: none !important;
-              background: transparent !important;
-            }
-            
-            .content .katex-display {
-              font-size: 0.95em !important;
-              font-weight: 800 !important;
-              margin: 18px 0 !important;
-              padding: 10px 14px !important;
-              background: #f8fafc !important;
-              border-radius: 12px !important;
-              border-left: 4px solid ${activeThemeColor} !important;
-              text-align: center !important;
-              display: block !important;
-              overflow-x: auto !important;
-              overflow-y: hidden !important;
-              max-width: 100% !important;
-              box-sizing: border-box !important;
-              scrollbar-width: none !important;
-              -ms-overflow-style: none !important;
-            }
-            .content .katex-display::-webkit-scrollbar {
-              display: none !important;
-            }
-            .content .katex-display .katex * {
-              font-weight: 800 !important;
-            }
-            
-            /* Prevent ugly splitting of layout cards across pages */
-            .content h2, .content h3, .content h4, .content blockquote, .content pre, .katex-display {
-              break-inside: avoid !important;
-              page-break-inside: avoid !important;
-            }
-            .footer { 
-              margin-top: 55px !important; 
-              padding-top: 18px !important; 
-              border-top: 2px solid ${activeThemeColor}80 !important;
-              display: flex !important; 
-              flex-direction: row !important;
-              align-items: center !important; 
-              justify-content: space-between !important; 
-              page-break-inside: avoid !important; 
-              break-inside: avoid !important;
-              clear: both !important;
-              width: 100% !important;
-            }
-            .footer-flex { 
-              display: flex !important; 
-              flex-direction: row !important;
-              align-items: center !important; 
-              gap: 10px !important; 
-            }
-            .footer-img { 
-              width: 24px !important; 
-              height: 24px !important; 
-              max-width: 24px !important; 
-              max-height: 24px !important; 
-              min-width: 24px !important; 
-              min-height: 24px !important; 
-              object-fit: contain !important;
-              border-radius: 6px !important; 
-              display: inline-block !important;
-              vertical-align: middle !important;
-            }
-            .footer-text { 
-              font-size: 13px !important; 
-              color: #475569 !important; 
-              font-weight: 700 !important; 
-              display: inline-block !important;
-              line-height: 1 !important;
-            }
-            .footer-link { 
-              font-size: 12.5px !important; 
-              color: ${activeThemeColor} !important; 
-              font-weight: 800 !important; 
-            }
-            
-            @media print {
-              body { padding: 0; }
-              @page { margin: 1.5cm; }
-              
-              /* Force clean white background for all printed Mermaid diagram containers and their inner divs */
-              .mermaid-dark, .mermaid-light,
-              .mermaid-dark > div, .mermaid-light > div {
-                background: #ffffff !important;
-                border: 1px solid #cbd5e1 !important;
-                color: #000000 !important;
-                box-shadow: none !important;
-                break-inside: avoid !important;
-                page-break-inside: avoid !important;
-              }
-              .mermaid-dark svg, .mermaid-light svg {
-                filter: none !important;
-                background: transparent !important;
-              }
-              /* Explicitly style all printed diagram node shapes to be soft gray/blue with slate outlines */
-              .mermaid-dark rect, .mermaid-light rect,
-              .mermaid-dark polygon, .mermaid-light polygon,
-              .mermaid-dark circle, .mermaid-light circle,
-              .mermaid-dark [class*="node"] rect, .mermaid-light [class*="node"] rect,
-              .mermaid-dark [class*="node"] polygon, .mermaid-light [class*="node"] polygon,
-              .mermaid-dark [class*="node"] circle, .mermaid-light [class*="node"] circle,
-              .mermaid-dark path.node, .mermaid-light path.node {
-                fill: #ffffff !important;
-                stroke: #94a3b8 !important;
-                stroke-width: 1.5px !important;
-              }
-              /* RESET ALL MERMAID DIAGRAM LABELS AND SHAPES TO PREVENT DARK/BLACK BOXES DURING PRINT */
-              svg .edgeLabel rect, svg .label rect, svg rect.label-container, svg rect.edgeLabel,
-              svg .edgeLabel span, svg foreignObject div, svg foreignObject span, svg .label div,
-              svg [class*="label"] rect, svg [class*="label"] div, svg [class*="label"] span,
-              .mermaid-dark .edgeLabel rect, .mermaid-light .edgeLabel rect,
-              .mermaid-dark .label rect, .mermaid-light .label rect,
-              .mermaid-dark .edgeLabel span, .mermaid-light .edgeLabel span,
-              .mermaid-dark foreignObject div, .mermaid-light foreignObject div,
-              .mermaid-dark foreignObject span, .mermaid-light foreignObject span {
-                fill: #ffffff !important;
-                background-color: #ffffff !important;
-                background: #ffffff !important;
-                color: #000000 !important;
-                stroke: #cbd5e1 !important;
-                border-color: #cbd5e1 !important;
-              }
-              /* Color all printed connector lines and arrows to be dark slate gray */
-              .mermaid-dark path.edgePath, .mermaid-light path.edgePath,
-              .mermaid-dark .edgePath .path, .mermaid-light .edgePath .path,
-              .mermaid-dark .edgePath path, .mermaid-light .edgePath path,
-              .mermaid-dark marker path, .mermaid-light marker path,
-              .mermaid-dark .arrowheadPath, .mermaid-light .arrowheadPath {
-                stroke: #475569 !important;
-                fill: #475569 !important;
-                stroke-width: 1.5px !important;
-              }
-              /* Force ALL text elements, spans, and tspans inside the printed diagram to be pitch black! */
-              .mermaid-dark text, .mermaid-light text,
-              .mermaid-dark tspan, .mermaid-light tspan,
-              .mermaid-dark span, .mermaid-light span,
-              .mermaid-dark div, .mermaid-light div,
-              .mermaid-dark [class*="label"] *, .mermaid-light [class*="label"] *,
-              svg .edgeLabel text, svg .edgeLabel tspan, svg .label text, svg .label tspan,
-              .mermaid-dark .edgeLabel *, .mermaid-light .edgeLabel * {
-                color: #000000 !important;
-                fill: #000000 !important;
-                font-weight: 700 !important;
-              }
-              /* Dash dividers for sections in printout */
-              .content hr {
-                border: none !important;
-                border-top: 2px dashed #94a3b8 !important;
-                margin: 36px 0 !important;
-                height: 0 !important;
-                display: block !important;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="header-flex">
-              <img src="${window.location.origin}/images/chameleon/01_chameleon_front.webp" class="header-img" style="width: 38px; height: 38px; max-width: 38px; max-height: 38px; object-fit: contain;" onerror="this.style.display='none'" />
-              <div>
-                <h1 class="title">Marline AI Summary</h1>
-                <div class="subtitle">AI-Powered Academic & Coding Assistant</div>
-              </div>
-            </div>
-            <div class="meta">
-              <span><strong>${file?.name || 'Document'}</strong></span>
-              <span>${dateStr}</span>
-              <span>${language}</span>
-            </div>
-          </div>
-          
-          <div class="content">
-            ${bodyHtml}
-          </div>
-          <br>
-          <hr>
-          <br>
-
-          <div class="footer" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-            <div class="footer-flex" style="display: flex; align-items: center; gap: 8px;">
-              <img 
-                src="${window.location.origin}/images/chameleon.png" 
-                class="footer-img" 
-                style="width: 24px; height: 24px; max-width: 24px; max-height: 24px; border-radius: 6px; object-fit: contain; display: inline-block; vertical-align: middle;" 
-                onerror="this.style.display='none'" 
-              />
-              <span class="footer-text">Generated with Chameleon Native AI (Marline)</span>
-            </div>
-            <a href="https://chameleon-nu.vercel.app" target="_blank" rel="noopener noreferrer" class="footer-link">chameleon-nu.vercel.app</a>
-          </div>
-          
-          <script>
-            // Ensure document fonts are loaded before triggering print dialog
-            window.onload = function() {
-              if (document.fonts && document.fonts.ready) {
-                document.fonts.ready.then(function() {
-                  setTimeout(function() {
-                    window.print();
-                  }, 800);
-                });
-              } else {
-                setTimeout(function() {
-                  window.print();
-                }, 1000);
-              }
-            }
-          </script>
-        </body>
-        </html>
-      `;
-
-      const iframeDoc = iframe.contentWindow?.document;
-      if (iframeDoc) {
-        iframeDoc.open();
-        iframeDoc.write(htmlContent);
-
-        // Dynamic styling injection: Clone all sheets from parent (e.g. Tailwind, KaTeX styles)
-        const parentStyles = document.querySelectorAll('link[rel="stylesheet"], style');
-        parentStyles.forEach(styleNode => {
-          iframeDoc.head.appendChild(styleNode.cloneNode(true));
+        // Crucial fix: strip text-white from dark mode so text is NEVER invisible on white paper!
+        clone.querySelectorAll('*').forEach(el => {
+          const htmlEl = el as HTMLElement;
+          if (htmlEl.className && typeof htmlEl.className === 'string') {
+            htmlEl.className = htmlEl.className
+              .replace(/text-white(\/\d+)?/g, 'text-slate-900')
+              .replace(/text-slate-100/g, 'text-slate-900')
+              .replace(/text-slate-200/g, 'text-slate-900')
+              .replace(/text-slate-300/g, 'text-slate-800')
+              .replace(/text-slate-400/g, 'text-slate-700');
+          }
+          if (htmlEl.tagName === 'STRONG') {
+            htmlEl.style.color = '#0f172a';
+            htmlEl.style.fontWeight = '800';
+          }
+          if (htmlEl.tagName === 'P' || htmlEl.tagName === 'LI') {
+            htmlEl.style.color = '#334155';
+          }
         });
 
-        iframeDoc.close();
+        // Unpack top-level children
+        const children = Array.from(clone.children);
+        if (children.length > 0) {
+          children.forEach(child => {
+            const html = (child as HTMLElement).outerHTML;
+            if (html && html.trim()) blocks.push(html);
+          });
+        } else {
+          blocks = [clone.innerHTML];
+        }
+      } else {
+        // Raw text or markdown handling:
+        const raw = stripThinkingProcess(parsedData?.formattedSolutionText || content);
+
+        // Check if raw is markdown containing exam sections (## Question ...)
+        if (raw.includes('## Question')) {
+          const questionSections = raw.split(new RegExp('(?=^##\\\\s*Question\\\\s*\\\\d+)', 'm')).filter(Boolean);
+          questionSections.forEach((sec, idx) => {
+            sec = sec.trim();
+            if (!sec) return;
+            if (sec.startsWith('# ') || sec.startsWith('# Solved Exam:')) {
+              const titleMatch = sec.match(/^#\\s*(?:Solved Exam:)?\\s*([^\\n]+)/i);
+              if (titleMatch) {
+                blocks.push(`<h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 16px 0 12px; border-bottom: 2px solid ${activeThemeColor}; padding-bottom: 6px;">${titleMatch[1].trim()}</h2>`);
+              }
+              const qIndex = sec.indexOf('## Question');
+              if (qIndex !== -1) {
+                sec = sec.slice(qIndex).trim();
+              } else {
+                return;
+              }
+            }
+
+            // Extract question number, question text, options, answer, explanation using safe RegExp
+            const qNumMatch = sec.match(/##\s*Question\s*(\d+)/i);
+            const qNum = qNumMatch ? qNumMatch[1] : String(idx + 1);
+
+            const qTextMatch = sec.match(new RegExp('\\*\\*Question:\\*\\*\\s*([\\s\\S]*?)(?=\\*\\*Options:\\*\\*|\\*\\*Correct Answer:\\*\\*|$)', 'i'));
+            let questionPrompt = qTextMatch ? qTextMatch[1].trim() : '';
+            if (!questionPrompt) {
+              const lines = sec.split('\n').filter(l => !l.startsWith('## ') && !l.startsWith('**Options:') && !l.startsWith('**Correct Answer:') && !l.startsWith('**Solution'));
+              questionPrompt = lines.length > 0 ? lines[0].replace(/\*\*Question:\*\*/i, '').trim() : '';
+            }
+
+            const optionsMatch = sec.match(new RegExp('\\*\\*Options:\\*\\*\\s*([\\s\\S]*?)(?=\\*\\*Correct Answer:\\*\\*|$)', 'i'));
+            const optionsText = optionsMatch ? optionsMatch[1].trim() : '';
+            const optionsList = optionsText.split(/\n•|\n\s*[-*]/).map(o => o.replace(/^[•\-*\s]+/, '').trim()).filter(Boolean);
+
+            const answerMatch = sec.match(new RegExp('\\*\\*Correct Answer:\\*\\*\\s*([^\\n]+)', 'i'));
+            const correctAns = answerMatch ? answerMatch[1].trim() : '';
+
+            const explMatch = sec.match(new RegExp('\\*\\*Solution & Derivation:\\*\\*\\s*([\\s\\S]*?)(?=$|\\n---|\\n##)', 'i'));
+            const explanation = explMatch ? explMatch[1].trim() : '';
+
+            blocks.push(`
+              <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 16px; padding: 22px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
+                  <span style="font-weight: 800; font-size: 14px; color: ${activeThemeColor}; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Question ${qNum}
+                  </span>
+                  <span style="font-size: 11px; font-weight: 700; background: ${activeThemeColor}14; color: ${activeThemeColor}; border: 1px solid ${activeThemeColor}40; padding: 2px 9px; border-radius: 9999px;">
+                    1.0 Mark
+                  </span>
+                </div>
+
+                <div style="font-size: 14.5px; font-weight: 600; color: #0f172a; margin-bottom: 14px; line-height: 1.6;">
+                  ${questionPrompt || sec.split('\n')[0]}
+                </div>
+
+                ${optionsList.length > 0 ? `
+                  <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px;">
+                    ${optionsList.map(opt => {
+                      const isCorrect = correctAns && (correctAns === opt || correctAns.startsWith(opt.slice(0, 2)) || opt.startsWith(correctAns.slice(0, 2)));
+                      return `
+                        <div style="padding: 9px 14px; border-radius: 10px; font-size: 13.5px; display: flex; align-items: center; justify-content: space-between; ${
+                          isCorrect 
+                            ? `background: ${activeThemeColor}14; border: 1.5px solid ${activeThemeColor}; color: #0f172a; font-weight: 700;` 
+                            : `background: #f8fafc; border: 1px solid #e2e8f0; color: #334155;`
+                        }">
+                          <span>${opt}</span>
+                          ${isCorrect ? `<span style="font-size: 11px; padding: 2px 8px; border-radius: 6px; background: ${activeThemeColor}; color: #ffffff; font-weight: 800;">✓ Correct</span>` : ''}
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : ''}
+
+                ${explanation ? `
+                  <div style="margin-top: 12px; padding: 12px 16px; border-radius: 12px; background: #f8fafc; border-left: 3.5px solid ${activeThemeColor}; font-size: 13px; color: #475569; line-height: 1.6;">
+                    <strong style="color: ${activeThemeColor}; display: block; margin-bottom: 4px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px;">Explanation &amp; Rationale:</strong>
+                    ${explanation}
+                  </div>
+                ` : ''}
+              </div>
+            `);
+          });
+        } else {
+          // General markdown split into intact paragraph blocks
+          const paragraphs = raw.split(/\n{2,}/).filter(Boolean);
+          paragraphs.forEach(p => {
+            p = p.trim();
+            if (!p) return;
+            if (p.startsWith('# ')) {
+              blocks.push(`<h1 style="font-size: 22px; font-weight: 900; color: #0f172a; margin: 18px 0 10px; border-bottom: 2px solid ${activeThemeColor}; padding-bottom: 6px;">${p.slice(2)}</h1>`);
+            } else if (p.startsWith('## ')) {
+              blocks.push(`<h2 style="font-size: 17.5px; font-weight: 800; color: ${activeThemeColor}; margin: 16px 0 8px; border-bottom: 1.5px solid ${activeThemeColor}40; padding-bottom: 4px;">${p.slice(3)}</h2>`);
+            } else if (p.startsWith('### ')) {
+              blocks.push(`<h3 style="font-size: 14.5px; font-weight: 700; color: #0f172a; margin: 14px 0 6px;">${p.slice(4)}</h3>`);
+            } else if (p.startsWith('---')) {
+              blocks.push(`<hr style="border: none; border-top: 1.5px dashed #cbd5e1; margin: 20px 0;" />`);
+            } else {
+              const formatted = p
+                .replace(/\*\*(.*?)\*\*/g, `<strong style="font-weight: 700; color: #0f172a; background-color: ${activeThemeColor}14; border: 1px solid ${activeThemeColor}50; padding: 2px 7px; border-radius: 6px;">$1</strong>`)
+                .replace(/\*(.*?)\*/g, `<em style="color: ${activeThemeColor};">$1</em>`)
+                .replace(/• (.*$)/gim, `<div style="display: flex; gap: 8px; margin: 5px 0;"><span style="color: ${activeThemeColor}; font-weight: 900;">•</span><span>$1</span></div>`)
+                .replace(/\n/g, '<br/>');
+              blocks.push(`<p style="margin: 8px 0; color: #334155; line-height: 1.7;">${formatted}</p>`);
+            }
+          });
+        }
       }
 
-      // Cleanup iframe after a delay
-      setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-      }, 25000);
+      // 2. Measure block heights using hidden DOM sandbox to partition into clean non-splitting pages
+      const measureBox = document.createElement('div');
+      measureBox.style.width = '750px';
+      measureBox.style.position = 'fixed';
+      measureBox.style.left = '-9999px';
+      measureBox.style.top = '0';
+      measureBox.style.visibility = 'hidden';
+      measureBox.style.fontSize = '14px';
+      measureBox.style.lineHeight = '1.7';
+      measureBox.style.boxSizing = 'border-box';
+      measureBox.className = 'font-rubik';
+      document.body.appendChild(measureBox);
+      containersToClean.push(measureBox);
 
-      toast.success("Ready! Select 'Save as PDF' in the print dialog.", { id: toastId });
-    } catch (err) {
+      const pages: string[][] = [[]];
+      let currentPageIndex = 0;
+      let currentHeight = 0;
+
+      blocks.forEach(block => {
+        measureBox.innerHTML = block;
+        const blockHeight = (measureBox.offsetHeight || 60) + 16;
+        // Page 1 has full header (~160px), Page 2+ has compact header (~55px)
+        const maxH = currentPageIndex === 0 ? 820 : 960;
+
+        if (currentHeight + blockHeight > maxH && pages[currentPageIndex].length > 0) {
+          currentPageIndex++;
+          pages[currentPageIndex] = [block];
+          currentHeight = blockHeight;
+        } else {
+          pages[currentPageIndex].push(block);
+          currentHeight += blockHeight;
+        }
+      });
+
+      const totalPages = pages.length;
+
+      // 3. Render distinct framed page containers (A4 ratio: 900px x 1273px)
+      const pageElements: HTMLDivElement[] = [];
+
+      for (let pIdx = 0; pIdx < totalPages; pIdx++) {
+        const pageContainer = document.createElement('div');
+        pageContainer.id = `marline-pdf-page-${pIdx + 1}`;
+        pageContainer.style.position = 'fixed';
+        pageContainer.style.top = '0';
+        pageContainer.style.left = '0';
+        pageContainer.style.width = '900px';
+        pageContainer.style.height = '1273px';
+        pageContainer.style.zIndex = '-99999';
+        pageContainer.style.pointerEvents = 'none';
+        pageContainer.style.backgroundColor = '#ffffff';
+        pageContainer.style.color = '#0f172a';
+        pageContainer.style.fontFamily = "'Rubik', system-ui, -apple-system, sans-serif";
+        pageContainer.style.padding = '24px 28px';
+        pageContainer.style.boxSizing = 'border-box';
+        pageContainer.style.lineHeight = '1.7';
+
+        const pageContentHtml = pages[pIdx].join('');
+
+        pageContainer.innerHTML = `
+          <style>
+            #marline-pdf-page-${pIdx + 1}, #marline-pdf-page-${pIdx + 1} * {
+              --background: #ffffff !important;
+              --foreground: #0f172a !important;
+              --card: #ffffff !important;
+              --card-foreground: #0f172a !important;
+              --border: #e2e8f0 !important;
+              --muted: #f8fafc !important;
+              --muted-foreground: #64748b !important;
+              --primary: ${activeThemeColor} !important;
+              --primary-foreground: #ffffff !important;
+            }
+            .marline-content, .marline-content p, .marline-content li, 
+            .marline-content span:not([class*="hljs"] *):not(pre *) {
+              color: #334155 !important;
+            }
+            .marline-content strong, 
+            .marline-content strong *,
+            .marline-content b,
+            .marline-content b * {
+              color: #0f172a !important;
+              font-weight: 800 !important;
+            }
+            .marline-content [class*="text-white"],
+            .marline-content [class*="text-white"] * {
+              color: #0f172a !important;
+            }
+            .marline-content .katex, .marline-content .katex * { color: #0f172a !important; }
+            .marline-content .katex-display {
+              display: block !important;
+              width: 100% !important;
+              text-align: center !important;
+              margin: 16px 0 !important;
+              padding: 14px 18px !important;
+              background: #f8fafc !important;
+              border: 1.5px solid #e2e8f0 !important;
+              border-radius: 12px !important;
+              color: #0f172a !important;
+            }
+            .marline-content h1 { font-size: 22px !important; font-weight: 800 !important; color: #0f172a !important; margin: 18px 0 10px !important; }
+            .marline-content h2 { font-size: 17.5px !important; font-weight: 800 !important; color: ${activeThemeColor} !important; margin: 16px 0 8px !important; border-bottom: 2px solid ${activeThemeColor}40 !important; padding-bottom: 4px !important; }
+            .marline-content h3 { font-size: 14.5px !important; font-weight: 700 !important; color: #0f172a !important; margin: 14px 0 6px !important; }
+            .marline-content p { margin: 8px 0 !important; color: #334155 !important; line-height: 1.65 !important; }
+            .marline-content pre { background: #f8fafc !important; border: 1.5px solid #e2e8f0 !important; border-radius: 12px !important; padding: 12px 16px !important; color: #0f172a !important; overflow: visible !important; }
+            .marline-content code:not(pre code) { background: ${activeThemeColor}14 !important; color: ${activeThemeColor} !important; border: 1px solid ${activeThemeColor}40 !important; border-radius: 5px !important; padding: 2px 6px !important; font-weight: 600 !important; font-family: monospace !important; }
+            .marline-content table { width: 100% !important; border-collapse: separate !important; border-spacing: 0 !important; border: 1.5px solid #cbd5e1 !important; border-radius: 12px !important; overflow: hidden !important; margin: 14px 0 !important; background: #ffffff !important; }
+            .marline-content th { background: #f1f5f9 !important; color: #0f172a !important; font-weight: 800 !important; padding: 9px 12px !important; border-bottom: 2px solid ${activeThemeColor} !important; border-right: 1px solid #e2e8f0 !important; text-align: left !important; }
+            .marline-content td { padding: 8px 12px !important; border-bottom: 1px solid #e2e8f0 !important; border-right: 1px solid #f8fafc !important; color: #334155 !important; font-size: 13px !important; }
+            .marline-content tr:nth-child(even) td { background: #f8fafc !important; }
+          </style>
+
+          <!-- Complete Framed Card for THIS page with Top/Bottom/Side Margins & Theme Border -->
+          <div style="width: 100%; height: 100%; box-sizing: border-box; border: 2.5px solid ${activeThemeColor}; border-radius: 20px; padding: 32px 38px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; background: #ffffff; box-shadow: 0 4px 24px rgba(0,0,0,0.03);">
+            
+            <!-- Page Header -->
+            <div style="flex-shrink: 0; margin-bottom: 18px;">
+              ${pIdx === 0 ? `
+                <!-- Full Rich Header on Page 1 -->
+                <div style="border-bottom: 2px solid ${activeThemeColor}25; padding-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+                  <div>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                      <img 
+                        src="${window.location.origin}/images/chameleon/01_chameleon_front.png" 
+                        alt="Marline Mascot" 
+                        style="width: 46px; height: 46px; object-fit: contain; border-radius: 12px; background: ${activeThemeColor}14; border: 1.5px solid ${activeThemeColor}40; padding: 3px;" 
+                        onerror="this.src='${window.location.origin}/images/chameleon.png'" 
+                      />
+                      <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span style="font-size: 24px; font-weight: 900; font-style: italic; letter-spacing: -0.5px; color: #0f172a;">
+                            Chameleon<span style="color: ${activeThemeColor}; font-size: 26px;">.</span>
+                          </span>
+                          <span style="font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; border: 1.5px solid ${activeThemeColor}; background: ${activeThemeColor}14; color: ${activeThemeColor}; text-transform: uppercase; letter-spacing: 0.5px;">
+                            ${isExam ? 'CONFIDENTIAL EXAM SOLUTION' : 'MARLINE AI SYNTHESIS'}
+                          </span>
+                        </div>
+                        <div style="font-size: 11px; font-weight: 700; color: ${activeThemeColor}; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px;">
+                          Marline Native Intelligence
+                        </div>
+                      </div>
+                    </div>
+
+                    <h1 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 4px 0; letter-spacing: -0.3px; line-height: 1.3;">
+                      ${pdfTitle}
+                    </h1>
+                    <p style="font-size: 12px; color: #64748b; margin: 0; line-height: 1.4;">
+                      ${isExam 
+                        ? 'Official solved examination briefing including accurate question breakdowns and key rationales.' 
+                        : 'Official aggregated lecture and course material summary generated by Marline Native AI.'
+                      }
+                    </p>
+                  </div>
+
+                  <!-- Metadata Box -->
+                  <div style="padding: 12px 16px; border-radius: 12px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-top: 3.5px solid ${activeThemeColor}; font-size: 11px; color: #64748b; min-width: 200px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+                    <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px;">
+                      <span>Source File:</span>
+                      <strong style="color: #0f172a; font-weight: 600; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${rawFileName}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px;">
+                      <span>Generated At:</span>
+                      <strong style="color: #0f172a; font-weight: 600;">${dateStr}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; gap: 12px;">
+                      <span>AI Engine:</span>
+                      <strong style="color: ${activeThemeColor}; font-weight: 700;">Marline Chameleon</strong>
+                    </div>
+                  </div>
+                </div>
+              ` : `
+                <!-- Compact Elegant Header on Page 2+ -->
+                <div style="border-bottom: 1.5px solid ${activeThemeColor}25; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <img 
+                      src="${window.location.origin}/images/chameleon/01_chameleon_front.png" 
+                      alt="Marline" 
+                      style="width: 26px; height: 26px; object-fit: contain; border-radius: 6px; background: ${activeThemeColor}14; padding: 2px;" 
+                      onerror="this.src='${window.location.origin}/images/chameleon.png'" 
+                    />
+                    <span style="font-size: 14.5px; font-weight: 800; color: #0f172a;">${pdfTitle}</span>
+                  </div>
+                  <span style="font-size: 11px; font-weight: 700; color: ${activeThemeColor}; text-transform: uppercase; letter-spacing: 0.5px;">Marline Intelligence</span>
+                </div>
+              `}
+            </div>
+
+            <!-- Page Content (Guaranteed 100% intact without splitting) -->
+            <div class="marline-content" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+              ${pageContentHtml}
+            </div>
+
+            <!-- Page Footer with Official Chameleon Logo and Page Numbers -->
+            <div style="flex-shrink: 0; margin-top: 18px; padding-top: 14px; border-top: 1.5px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #64748b;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <img 
+                  src="${window.location.origin}/images/chameleon.png" 
+                  alt="Chameleon Logo" 
+                  style="width: 22px; height: 22px; border-radius: 5px; object-fit: contain; display: inline-block; vertical-align: middle;" 
+                  onerror="this.style.display='none'" 
+                />
+                <span style="color: #475569; font-weight: 600; font-size: 11.5px;">Generated with Chameleon Native AI (Marline)</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 14px;">
+                <span style="color: #94a3b8; font-weight: 700; font-size: 11px;">Page ${pIdx + 1} of ${totalPages}</span>
+                <a href="https://chameleon-nu.vercel.app" target="_blank" rel="noopener noreferrer" style="color: ${activeThemeColor}; font-weight: 700; text-decoration: none; font-size: 11.5px;">chameleon-nu.vercel.app</a>
+              </div>
+            </div>
+
+          </div>
+        `;
+
+        document.body.appendChild(pageContainer);
+        pageElements.push(pageContainer);
+        containersToClean.push(pageContainer);
+      }
+
+      // 4. Preload all images across all pages before capturing
+      const allImgElements = Array.from(document.querySelectorAll('[id^="marline-pdf-page-"] img')) as HTMLImageElement[];
+      await Promise.all(allImgElements.map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        });
+      }));
+
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+      await new Promise(r => setTimeout(r, 200));
+
+      // 5. Render each page cleanly to jsPDF without any multi-page slice artifacts
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      for (let i = 0; i < pageElements.length; i++) {
+        if (i > 0) pdf.addPage();
+        const canvas = await html2canvas(pageElements[i], {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: 900
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      }
+
+      // 6. Save file directly
+      const fileName = `${pdfTitle}.pdf`;
+      pdf.save(fileName);
+      toast.success("Marline PDF downloaded successfully!", { id: toastId });
+    } catch (err: any) {
       console.error("PDF Export Error:", err);
-      toast.error("Failed to generate PDF.", { id: toastId });
+      toast.error("Failed to export PDF: " + (err.message || 'Unknown error'), { id: toastId });
+    } finally {
+      containersToClean.forEach(el => {
+        if (document.body.contains(el)) {
+          document.body.removeChild(el);
+        }
+      });
     }
   };
 
-  const renderPreview = () => {
+    const renderPreview = () => {
     if (file.mimeType.startsWith("image/")) {
       return (
         <div className="relative aspect-video rounded-xl overflow-hidden border border-border bg-muted/20 group">
@@ -2438,6 +2149,34 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
                     )}
                   </div>
 
+                  {/* Question Type Selector: All, MCQ, True/False */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">Question Types</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'all', label: 'All (MCQ + T/F)' },
+                        { id: 'mcq', label: 'MCQ Only' },
+                        { id: 'true_false', label: 'True / False' }
+                      ].map((typeItem) => (
+                        <button
+                          key={typeItem.id}
+                          type="button"
+                          onClick={() => setSelectedQuestionType(typeItem.id as any)}
+                          className={cn(
+                            "py-2 px-2 rounded-xl border text-[11px] font-bold transition-all cursor-pointer text-center",
+                            selectedQuestionType === typeItem.id
+                              ? cn("border-primary text-white shadow-md scale-[1.02]", activeClasses.primary)
+                              : isDark
+                              ? "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"
+                              : "bg-black/5 border-black/10 text-slate-700 hover:bg-black/10"
+                          )}
+                        >
+                          {typeItem.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Confirm & Cancel Actions */}
                   <div className="flex items-center gap-2 pt-1">
                     <Button
@@ -2453,7 +2192,7 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
                         const finalCount = isCustomCount
                           ? Math.min(Math.max(parseInt(customCountValue, 10) || 10, 1), 50)
                           : selectedQuestionCount;
-                        sendMessage("", "quiz", finalCount);
+                        sendMessage("", "quiz", finalCount, selectedQuestionType);
                       }}
                       className={cn(
                         "flex-[2] rounded-2xl h-11 text-white font-bold gap-2 shadow-lg transition-all cursor-pointer",
@@ -2502,26 +2241,36 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
                           Try one of these powerful actions to get started:
                         </p>
 
-                        <div className="grid grid-cols-2 gap-3 w-full max-w-md">
+                        <div className="grid grid-cols-3 gap-2.5 w-full max-w-lg">
                           <Button
                             variant="outline"
-                            className={cn("flex-col gap-2.5 sm:gap-3 h-auto py-3.5 sm:py-5 transition-all rounded-2xl group shadow-lg cursor-pointer", isDark ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5", activeClasses.cardHover)}
+                            className={cn("flex-col gap-2 sm:gap-2.5 h-auto py-3.5 sm:py-4 transition-all rounded-2xl group shadow-lg cursor-pointer", isDark ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5", activeClasses.cardHover)}
                             onClick={() => sendMessage("", "summarize")}
                           >
-                            <div className={cn("p-2 sm:p-3 rounded-xl transition-colors", activeClasses.bg)}>
-                              <Sparkles className={cn("w-5 h-5 sm:w-6 sm:h-6", activeClasses.text)} />
+                            <div className={cn("p-2 sm:p-2.5 rounded-xl transition-colors", activeClasses.bg)}>
+                              <Sparkles className={cn("w-5 h-5", activeClasses.text)} />
                             </div>
                             <span className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground transition-colors", activeClasses.cardTextHover)}>Summarize</span>
                           </Button>
                           <Button
                             variant="outline"
-                            className={cn("flex-col gap-2.5 sm:gap-3 h-auto py-3.5 sm:py-5 transition-all rounded-2xl group shadow-lg cursor-pointer", isDark ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5", activeClasses.cardHover)}
+                            className={cn("flex-col gap-2 sm:gap-2.5 h-auto py-3.5 sm:py-4 transition-all rounded-2xl group shadow-lg cursor-pointer", isDark ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5", activeClasses.cardHover)}
                             onClick={() => setShowQuizConfigModal(true)}
                           >
-                            <div className={cn("p-2 sm:p-3 rounded-xl transition-colors", activeClasses.bg)}>
-                              <Brain className={cn("w-5 h-5 sm:w-6 sm:h-6", activeClasses.text)} />
+                            <div className={cn("p-2 sm:p-2.5 rounded-xl transition-colors", activeClasses.bg)}>
+                              <Brain className={cn("w-5 h-5", activeClasses.text)} />
                             </div>
                             <span className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground transition-colors", activeClasses.cardTextHover)}>Generate Quiz</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className={cn("flex-col gap-2 sm:gap-2.5 h-auto py-3.5 sm:py-4 transition-all rounded-2xl group shadow-lg cursor-pointer", isDark ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5", activeClasses.cardHover)}
+                            onClick={() => sendMessage("", "solve-exam")}
+                          >
+                            <div className={cn("p-2 sm:p-2.5 rounded-xl transition-colors", activeClasses.bg)}>
+                              <FileText className={cn("w-5 h-5", activeClasses.text)} />
+                            </div>
+                            <span className={cn("text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground transition-colors", activeClasses.cardTextHover)}>Solve Exam</span>
                           </Button>
                         </div>
                       </div>
@@ -2658,6 +2407,83 @@ export default function AIModal({ isOpen, onClose, file }: AIModalProps) {
                                 <Brain className="w-4 h-4" />
                                 Launch Quiz
                               </Button>
+                            </div>
+                          ) : activeTask === 'solve-exam' && idx === messages.length - 1 && msg.role === 'assistant' ? (
+                            <div className="flex flex-col items-center gap-4 py-4">
+                              <div className="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                                <FileText className="w-8 h-8 text-emerald-400" />
+                              </div>
+                              <p className="text-sm font-semibold text-center">Exam Analyzed & Solved Completely!</p>
+                              <p className="text-xs text-muted-foreground text-center">Choose whether to practice solving this exam interactively or download the solved PDF directly.</p>
+                              <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                                <Button
+                                  onClick={() => {
+                                    try {
+                                      let parsedData: any = null;
+                                      try {
+                                        const cleaned = msg.content.replace(/```json|```/g, '').trim();
+                                        parsedData = JSON.parse(cleaned);
+                                      } catch (_) {
+                                        parsedData = JSON.parse(msg.content);
+                                      }
+
+                                      const questions = parsedData?.questions || (Array.isArray(parsedData) ? parsedData : []);
+                                      const quizData = {
+                                        id: "ai-solved-exam",
+                                        name: parsedData?.examTitle || `Solved Exam: ${file.name}`,
+                                        code: "EXAM_SOLVER",
+                                        duration: 15,
+                                        jsonFile: "",
+                                        questions
+                                      };
+
+                                      localStorage.setItem("ai-quiz-data", JSON.stringify(quizData));
+                                      localStorage.setItem("ai-quiz-back-link", window.location.pathname);
+                                      toast.success("Opening Interactive Exam in Quiz Mode...");
+                                      onClose();
+                                      setTimeout(() => {
+                                        try {
+                                          router.push("/quiz/ai/generated/ai-quiz");
+                                        } catch (_) {
+                                          window.location.href = "/quiz/ai/generated/ai-quiz";
+                                        }
+                                      }, 50);
+                                    } catch (e) {
+                                      console.error("Exam Quiz Redirect Error:", e);
+                                      toast.error("Failed to load interactive quiz");
+                                    }
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl gap-2 shadow-lg shadow-emerald-600/20"
+                                >
+                                  <Brain className="w-4 h-4" />
+                                  Solve in Interface
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    try {
+                                      let parsedData: any = null;
+                                      try {
+                                        const cleaned = msg.content.replace(/```json|```/g, '').trim();
+                                        parsedData = JSON.parse(cleaned);
+                                      } catch (_) {
+                                        parsedData = JSON.parse(msg.content);
+                                      }
+                                      const solutionText = parsedData?.formattedSolutionText || JSON.stringify(parsedData, null, 2);
+                                      const rawFileName = file?.name?.replace(/\.[^/.]+$/, "") || 'Exam';
+                                      const examTitle = parsedData?.examTitle || rawFileName;
+                                      downloadAsPDF(msg.content, null, `${examTitle} - Solved Exam`);
+                                    } catch (e) {
+                                      const rawFileName = file?.name?.replace(/\.[^/.]+$/, "") || 'Exam';
+                                      downloadAsPDF(msg.content, null, `${rawFileName} - Solved Exam`);
+                                    }
+                                  }}
+                                  className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 font-bold px-5 py-2.5 rounded-xl gap-2"
+                                >
+                                  <Download className="w-4 h-4" />
+                                  Download Solved PDF
+                                </Button>
+                              </div>
                             </div>
                           ) : (
                             <>
