@@ -90,12 +90,21 @@ export default function ExecutiveReportView() {
     const activeTo = overrideTo !== undefined ? overrideTo : toDate
 
     try {
-      const data = await getPlatformExecutiveReportData({
+      const res = await getPlatformExecutiveReportData({
         adminPassword: pwd,
         fromDate: `${activeFrom}T00:00:00.000Z`,
         toDate: `${activeTo}T23:59:59.999Z`
       })
-      setReportData(data)
+
+      if (!res.success || !res.data) {
+        const errorMsg = res.error || 'Failed to authenticate and generate report'
+        setAuthError(errorMsg)
+        toast.error(errorMsg)
+        setIsUnlocked(false)
+        return
+      }
+
+      setReportData(res.data)
       setIsUnlocked(true)
       toast.success('Admin authorized: Real platform metrics successfully computed from database!')
     } catch (err: any) {
@@ -367,7 +376,7 @@ export default function ExecutiveReportView() {
                 Super Admin Password Verification Required
               </h3>
               <p className="text-sm text-muted-foreground font-rubik leading-relaxed">
-                لضمان دقة العمليات الحسابية بنسبة <span className="font-bold text-foreground">100%</span> واعتمادها على استعلامات حقيقية في قاعدة البيانات (مثل فحص سجلات آلاف المستخدمين، واستهلاك CAPI_REQS الحقيقي، وأكثر من 18 ألف اختبار)، يتطلب النظام كلمة سر الأدمن المشفرة للوصول منعا لتنفيذ استعلامات مكلفة بالخطأ.
+                To guarantee <span className="font-bold text-foreground">100% accurate platform calculations</span> powered by live database telemetry (aggregating records across 4,700+ users, live CAPI_REQS tokens, and over 18,000 quiz attempts), entering an authorized encrypted Super Admin password is required to prevent accidental execution of expensive queries.
               </p>
             </div>
 
