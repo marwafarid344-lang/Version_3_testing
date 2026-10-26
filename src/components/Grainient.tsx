@@ -153,6 +153,19 @@ type GrainientCtx = {
 };
 const ctxMap = new WeakMap<HTMLDivElement, GrainientCtx>();
 
+const isWebGLSupported = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const canvas = document.createElement('canvas');
+    return Boolean(
+      window.WebGLRenderingContext &&
+      (canvas.getContext('webgl2') || canvas.getContext('webgl') || (canvas.getContext as any)('experimental-webgl'))
+    );
+  } catch {
+    return false;
+  }
+};
+
 const Grainient: React.FC<GrainientProps> = ({
   timeSpeed = 0.25,
   colorBalance = 0.0,
@@ -183,7 +196,7 @@ const Grainient: React.FC<GrainientProps> = ({
   // Effect 1: build WebGL context once, pause when offscreen / tab hidden
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !isWebGLSupported()) return;
 
     const isMobileDevice = typeof window !== 'undefined' && (
       window.matchMedia("(pointer: coarse)").matches ||
@@ -192,56 +205,69 @@ const Grainient: React.FC<GrainientProps> = ({
       (typeof navigator !== 'undefined' && (navigator.maxTouchPoints > 0 || (navigator as any).msMaxTouchPoints > 0))
     );
 
-    const renderer = new Renderer({
-      webgl: 2,
-      alpha: false,
-      antialias: false,
-      powerPreference: "high-performance",
-      dpr: isMobileDevice ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)
-    });
+    let renderer: InstanceType<typeof Renderer>;
+    let gl: any;
+    let canvas: HTMLCanvasElement;
+    let program: InstanceType<typeof Program>;
+    let mesh: InstanceType<typeof Mesh>;
 
-    const gl = renderer.gl;
-    const canvas = gl.canvas as HTMLCanvasElement;
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.display = 'block';
-    canvas.style.transform = 'translateZ(0)';
-    canvas.style.willChange = 'transform';
-    container.appendChild(canvas);
+    try {
+      renderer = new Renderer({
+        webgl: 2,
+        alpha: false,
+        antialias: false,
+        powerPreference: "high-performance",
+        dpr: isMobileDevice ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)
+      });
 
-    const geometry = new Triangle(gl);
-    const program = new Program(gl, {
-      vertex,
-      fragment,
-      uniforms: {
-        iTime:           { value: 0 },
-        iResolution:     { value: new Float32Array([1, 1]) },
-        uTimeSpeed:      { value: 0.25 },
-        uColorBalance:   { value: 0.0 },
-        uWarpStrength:   { value: 1.0 },
-        uWarpFrequency:  { value: 5.0 },
-        uWarpSpeed:      { value: 2.0 },
-        uWarpAmplitude:  { value: 50.0 },
-        uBlendAngle:     { value: 0.0 },
-        uBlendSoftness:  { value: 0.05 },
-        uRotationAmount: { value: 500.0 },
-        uNoiseScale:     { value: 2.0 },
-        uGrainAmount:    { value: 0.1 },
-        uGrainScale:     { value: 2.0 },
-        uGrainAnimated:  { value: 0.0 },
-        uContrast:       { value: 1.5 },
-        uGamma:          { value: 1.0 },
-        uSaturation:     { value: 1.0 },
-        uCenterOffset:   { value: new Float32Array([0, 0]) },
-        uZoom:           { value: 0.9 },
-        uColor1:         { value: new Float32Array([1, 1, 1]) },
-        uColor2:         { value: new Float32Array([1, 1, 1]) },
-        uColor3:         { value: new Float32Array([1, 1, 1]) }
-      }
-    });
+      gl = renderer.gl;
+      if (!gl || !gl.canvas) return;
 
-    const mesh = new Mesh(gl, { geometry, program });
-    ctxMap.set(container, { renderer, program, mesh });
+      canvas = gl.canvas as HTMLCanvasElement;
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.display = 'block';
+      canvas.style.transform = 'translateZ(0)';
+      canvas.style.willChange = 'transform';
+      container.appendChild(canvas);
+
+      const geometry = new Triangle(gl);
+      program = new Program(gl, {
+        vertex,
+        fragment,
+        uniforms: {
+          iTime:           { value: 0 },
+          iResolution:     { value: new Float32Array([1, 1]) },
+          uTimeSpeed:      { value: 0.25 },
+          uColorBalance:   { value: 0.0 },
+          uWarpStrength:   { value: 1.0 },
+          uWarpFrequency:  { value: 5.0 },
+          uWarpSpeed:      { value: 2.0 },
+          uWarpAmplitude:  { value: 50.0 },
+          uBlendAngle:     { value: 0.0 },
+          uBlendSoftness:  { value: 0.05 },
+          uRotationAmount: { value: 500.0 },
+          uNoiseScale:     { value: 2.0 },
+          uGrainAmount:    { value: 0.1 },
+          uGrainScale:     { value: 2.0 },
+          uGrainAnimated:  { value: 0.0 },
+          uContrast:       { value: 1.5 },
+          uGamma:          { value: 1.0 },
+          uSaturation:     { value: 1.0 },
+          uCenterOffset:   { value: new Float32Array([0, 0]) },
+          uZoom:           { value: 0.9 },
+          uColor1:         { value: new Float32Array([1, 1, 1]) },
+          uColor2:         { value: new Float32Array([1, 1, 1]) },
+          uColor3:         { value: new Float32Array([1, 1, 1]) }
+        }
+      });
+
+      mesh = new Mesh(gl, { geometry, program });
+      ctxMap.set(container, { renderer, program, mesh });
+    } catch (err) {
+      console.warn('Grainient WebGL initialization skipped:', err);
+      return;
+    }
 
     let lastW = 0;
     let lastH = 0;
@@ -322,8 +348,12 @@ const Grainient: React.FC<GrainientProps> = ({
       document.removeEventListener('visibilitychange', onVisibility);
       ctxMap.delete(container);
       try {
-        gl.getExtension('WEBGL_lose_context')?.loseContext();
-        container.removeChild(canvas);
+        gl?.getExtension('WEBGL_lose_context')?.loseContext();
+      } catch { /* ignore */ }
+      try {
+        if (canvas && container.contains(canvas)) {
+          container.removeChild(canvas);
+        }
       } catch { /* ignore */ }
     };
   }, []); // renderer created once
