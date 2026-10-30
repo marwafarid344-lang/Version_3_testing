@@ -95,19 +95,34 @@ export const departmentData: { [key: string]: Department } = {
                 exams: "https://drive.google.com/drive/folders/1vUbUjWsbexiPgjDbJOuh-N43PVDc9hjc?usp=drive_link"
               }
             },
+            // {
+            //   id: "calculus",
+            //   name: "Calculus",
+            //   code: "02-24-00102",
+            //   description: "Differential and integral calculus with applications in computing",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+            //     videos: "",
+            //     summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+            //   }
+            // },
             {
-              id: "calculus",
-              name: "Calculus",
-              code: "02-24-00102",
-              description: "Differential and integral calculus with applications in computing",
+              id: "probability-statistics-1",
+              name: "Probability and Statistics I",
+              code: "02-24-00106",
+              description: "Fundamental concepts of probability theory and statistical analysis",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
-                videos: "",
-                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
               }
             },
             {
@@ -187,19 +202,34 @@ export const departmentData: { [key: string]: Department } = {
             }
           ],
           term2: [
+            // {
+            //   id: "probability-statistics-1",
+            //   name: "Probability and Statistics I",
+            //   code: "02-24-00106",
+            //   description: "Fundamental concepts of probability theory and statistical analysis",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+            //     videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+            //     summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+            //   }
+            // },
             {
-              id: "probability-statistics-1",
-              name: "Probability and Statistics I",
-              code: "02-24-00106",
-              description: "Fundamental concepts of probability theory and statistical analysis",
+              id: "calculus",
+              name: "Calculus",
+              code: "02-24-00102",
+              description: "Differential and integral calculus with applications in computing",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
-                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
-                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+                videos: "",
+                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
               }
             },
             {
@@ -658,19 +688,34 @@ export const departmentData: { [key: string]: Department } = {
                 exams: "https://drive.google.com/drive/folders/1vUbUjWsbexiPgjDbJOuh-N43PVDc9hjc?usp=drive_link"
               }
             },
+            // {
+            //   id: "calculus-ba",
+            //   name: "Calculus",
+            //   code: "02-24-00102",
+            //   description: "Differential and integral calculus with applications in computing",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+            //     videos: "",
+            //     summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+            //   }
+            // },
             {
-              id: "calculus-ba",
-              name: "Calculus",
-              code: "02-24-00102",
-              description: "Differential and integral calculus with applications in computing",
+              id: "probability-statistics-1-ba",
+              name: "Probability and Statistics I",
+              code: "02-24-00106",
+              description: "Fundamental concepts of probability theory and statistical analysis",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
-                videos: "",
-                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
               }
             },
             {
@@ -735,19 +780,34 @@ export const departmentData: { [key: string]: Department } = {
             }
           ],
           term2: [
+            // {
+            //   id: "probability-statistics-1-ba",
+            //   name: "Probability and Statistics I",
+            //   code: "02-24-00106",
+            //   description: "Fundamental concepts of probability theory and statistical analysis",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+            //     videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+            //     summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+            //   }
+            // },
             {
-              id: "probability-statistics-1-ba",
-              name: "Probability and Statistics I",
-              code: "02-24-00106",
-              description: "Fundamental concepts of probability theory and statistical analysis",
+              id: "calculus-ba",
+              name: "Calculus",
+              code: "02-24-00102",
+              description: "Differential and integral calculus with applications in computing",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
-                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
-                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+                videos: "",
+                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
               }
             },
             {
@@ -1236,19 +1296,34 @@ export const departmentData: { [key: string]: Department } = {
                 exams: "https://drive.google.com/drive/folders/1vUbUjWsbexiPgjDbJOuh-N43PVDc9hjc?usp=drive_link"
               }
             },
+            // {
+            //   id: "calculus-is",
+            //   name: "Calculus",
+            //   code: "02-24-00102",
+            //   description: "Differential and integral calculus with applications in computing",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+            //     videos: "",
+            //     summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+            //   }
+            // },
             {
-              id: "calculus-is",
-              name: "Calculus",
-              code: "02-24-00102",
-              description: "Differential and integral calculus with applications in computing",
+              id: "probability-statistics-1-is",
+              name: "Probability and Statistics I",
+              code: "02-24-00106",
+              description: "Fundamental concepts of probability theory and statistical analysis",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
-                videos: "",
-                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
               }
             },
             {
@@ -1313,19 +1388,34 @@ export const departmentData: { [key: string]: Department } = {
             }
           ],
           term2: [
+            // {
+            //   id: "probability-statistics-1-is",
+            //   name: "Probability and Statistics I",
+            //   code: "02-24-00106",
+            //   description: "Fundamental concepts of probability theory and statistical analysis",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+            //     videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+            //     summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+            //   }
+            // },
             {
-              id: "probability-statistics-1-is",
-              name: "Probability and Statistics I",
-              code: "02-24-00106",
-              description: "Fundamental concepts of probability theory and statistical analysis",
+              id: "calculus-is",
+              name: "Calculus",
+              code: "02-24-00102",
+              description: "Differential and integral calculus with applications in computing",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
-                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
-                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+                videos: "",
+                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
               }
             },
             {
@@ -1784,19 +1874,34 @@ export const departmentData: { [key: string]: Department } = {
                 exams: ""
               }
             },
+            // {
+            //   id: "calculus-ma",
+            //   name: "Calculus",
+            //   code: "02-24-00102",
+            //   description: "Calculus for media and digital content analysis",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon",
+            //     sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6",
+            //     videos: "https://youtube.com/playlist?list=calculus-ma-videos",
+            //     summaries: "",
+            //     exams: ""
+            //   }
+            // },
             {
-              id: "calculus-ma",
-              name: "Calculus",
-              code: "02-24-00102",
-              description: "Calculus for media and digital content analysis",
+              id: "probability-statistics-1-ma",
+              name: "Probability and Statistics I",
+              code: "02-24-00106",
+              description: "Fundamental concepts of probability theory and statistical analysis",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon",
-                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6",
-                videos: "https://youtube.com/playlist?list=calculus-ma-videos",
-                summaries: "",
-                exams: ""
+                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
               }
             },
             {
@@ -1861,19 +1966,34 @@ export const departmentData: { [key: string]: Department } = {
             }
           ],
           term2: [
+            // {
+            //   id: "probability-statistics-1-ma",
+            //   name: "Probability and Statistics I",
+            //   code: "02-24-00106",
+            //   description: "Fundamental concepts of probability theory and statistical analysis",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+            //     videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+            //     summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+            //   }
+            // },
             {
-              id: "probability-statistics-1-ma",
-              name: "Probability and Statistics I",
-              code: "02-24-00106",
-              description: "Fundamental concepts of probability theory and statistical analysis",
+              id: "calculus-ma",
+              name: "Calculus",
+              code: "02-24-00102",
+              description: "Calculus for media and digital content analysis",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
-                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
-                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon",
+                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6",
+                videos: "https://youtube.com/playlist?list=calculus-ma-videos",
+                summaries: "",
+                exams: ""
               }
             },
             {
@@ -2332,19 +2452,34 @@ export const departmentData: { [key: string]: Department } = {
                 exams: ""
               }
             },
+            // {
+            //   id: "calculus-hi",
+            //   name: "Calculus",
+            //   code: "02-24-00102",
+            //   description: "Calculus applications in healthcare analytics",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon",
+            //     sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6",
+            //     videos: "https://youtube.com/playlist?list=calculus-hi-videos",
+            //     summaries: "",
+            //     exams: ""
+            //   }
+            // },
             {
-              id: "calculus-hi",
-              name: "Calculus",
-              code: "02-24-00102",
-              description: "Calculus applications in healthcare analytics",
+              id: "probability-statistics-1-hi",
+              name: "Probability and Statistics I",
+              code: "02-24-00106",
+              description: "Fundamental concepts of probability theory and statistical analysis",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon",
-                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6",
-                videos: "https://youtube.com/playlist?list=calculus-hi-videos",
-                summaries: "",
-                exams: ""
+                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
               }
             },
             {
@@ -2409,19 +2544,34 @@ export const departmentData: { [key: string]: Department } = {
             }
           ],
           term2: [
+            // {
+            //   id: "probability-statistics-1-hi",
+            //   name: "Probability and Statistics I",
+            //   code: "02-24-00106",
+            //   description: "Fundamental concepts of probability theory and statistical analysis",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+            //     videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+            //     summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+            //   }
+            // },
             {
-              id: "probability-statistics-1-hi",
-              name: "Probability and Statistics I",
-              code: "02-24-00106",
-              description: "Fundamental concepts of probability theory and statistical analysis",
+              id: "calculus-hi",
+              name: "Calculus",
+              code: "02-24-00102",
+              description: "Calculus applications in healthcare analytics",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
-                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
-                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon",
+                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6",
+                videos: "https://youtube.com/playlist?list=calculus-hi-videos",
+                summaries: "",
+                exams: ""
               }
             },
             {
@@ -2880,19 +3030,34 @@ export const departmentData: { [key: string]: Department } = {
                 exams: "https://drive.google.com/drive/folders/1vUbUjWsbexiPgjDbJOuh-N43PVDc9hjc?usp=drive_link"
               }
             },
+            // {
+            //   id: "calculus-cs",
+            //   name: "Calculus",
+            //   code: "02-24-00102",
+            //   description: "Differential and integral calculus with applications in computing",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+            //     videos: "",
+            //     summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+            //   }
+            // },
             {
-              id: "calculus-cs",
-              name: "Calculus",
-              code: "02-24-00102",
-              description: "Differential and integral calculus with applications in computing",
+              id: "probability-statistics-1-cs",
+              name: "Probability and Statistics I",
+              code: "02-24-00106",
+              description: "Fundamental concepts of probability theory and statistical analysis",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
-                videos: "",
-                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
               }
             },
             {
@@ -2957,19 +3122,34 @@ export const departmentData: { [key: string]: Department } = {
             }
           ],
           term2: [
+            // {
+            //   id: "probability-statistics-1-cs",
+            //   name: "Probability and Statistics I",
+            //   code: "02-24-00106",
+            //   description: "Fundamental concepts of probability theory and statistical analysis",
+            //   creditHours: 3,
+            //   prerequisites: [],
+            //   materials: {
+            //     lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
+            //     sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
+            //     videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
+            //     summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
+            //     exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+            //   }
+            // },
             {
-              id: "probability-statistics-1-cs",
-              name: "Probability and Statistics I",
-              code: "02-24-00106",
-              description: "Fundamental concepts of probability theory and statistical analysis",
+              id: "calculus-cs",
+              name: "Calculus",
+              code: "02-24-00102",
+              description: "Differential and integral calculus with applications in computing",
               creditHours: 3,
               prerequisites: [],
               materials: {
-                lectures: "https://drive.google.com/drive/folders/14WxYDv-3V5hBNF2FTrLEKkZpPQJjwyUb?usp=drive_link",
-                sections: "https://drive.google.com/drive/folders/1yy9aqzmJsEDZasn2VT1nfzIdJoajEf6F?usp=drive_link",
-                videos: ["https://youtube.com/playlist?list=PL7snZ0LSsq3g9NUio7xFDtC9IVIj649GV","https://youtube.com/playlist?list=PLXCWPoTuIpYbXgbNuQkBHlMwjK6DpnQ3l"],
-                summaries: "https://drive.google.com/drive/folders/1CmL8lOIlbHdYCAhNa5cJSbDSTGEJVdMt?usp=drive_link",
-                exams: "https://drive.google.com/drive/folders/1reVZYtR8aOBqpHY8PSn2vmwVwNCS_nQC?usp=drive_link"
+                lectures: "https://drive.google.com/drive/folders/1LsWVrCXpwVsL7YhGL_QFQhyryvpc_Yon?usp=drive_link",
+                sections: "https://drive.google.com/drive/folders/1U2LbrtWkf-X8DL3c7Yo12kgV8bbZ0Wb6?usp=drive_link",
+                videos: "",
+                summaries: "https://drive.google.com/drive/folders/1UkJQ6mJmcSb_MTbzT_8liJZTUMCOLARt?usp=drive_link",
+                exams: "https://drive.google.com/drive/folders/1Uf7LaRzQyqxEbTVG0dfmWFzTxmZNHLvB?usp=drive_link"
               }
             },
             {
